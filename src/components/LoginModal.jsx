@@ -1,31 +1,46 @@
 import React, { useState } from 'react';
 import { DEMO_USERS } from '../mockData';
-import { Lock, UserCheck, ShieldAlert, KeyRound, Wrench, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Lock, UserCheck, ShieldAlert, KeyRound, Wrench, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
+import { authenticateUser } from '../services/dbService';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [employeeId, setEmployeeId] = useState('EMP-7801');
   const [password, setPassword] = useState('123');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = DEMO_USERS.find(
-      (u) => u.employeeId.toLowerCase() === employeeId.trim().toLowerCase() && u.password === password
-    );
+    setErrorMsg('');
+    setIsAuthenticating(true);
 
-    if (user) {
-      setErrorMsg('');
-      onLoginSuccess(user);
-    } else {
-      setErrorMsg('Invalid Employee ID or Password. Check demo credentials below.');
+    try {
+      const res = await authenticateUser(employeeId, password);
+      if (res.success && res.user) {
+        // Save logged-in session to localStorage for auto-reconnect
+        try {
+          localStorage.setItem('titan_sdmms_user', JSON.stringify(res.user));
+        } catch (err) {}
+        onLoginSuccess(res.user);
+      } else {
+        setErrorMsg(res.error || 'Authentication failed. Please verify employee ID & password.');
+      }
+    } catch (err) {
+      setErrorMsg('Login server error. Try employee IDs EMP-7801, EMP-4402, or EMP-1001.');
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
   const handleSelectQuickRole = (user) => {
     setEmployeeId(user.employeeId);
-    setPassword(user.password);
+    setPassword(user.password || '123');
+    try {
+      localStorage.setItem('titan_sdmms_user', JSON.stringify(user));
+    } catch (err) {}
     onLoginSuccess(user);
   };
+
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -79,9 +94,18 @@ export default function LoginModal({ onLoginSuccess }) {
 
           <button
             type="submit"
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm rounded-lg shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
+            disabled={isAuthenticating}
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-sm rounded-lg shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
           >
-            <Lock className="w-4 h-4" /> Secure Plant Login
+            {isAuthenticating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Verifying Credentials...
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" /> Secure Plant Login
+              </>
+            )}
           </button>
         </form>
 

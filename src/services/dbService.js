@@ -1,14 +1,29 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { INITIAL_COMPLAINTS, MACHINES } from '../mockData';
+import { INITIAL_COMPLAINTS, MACHINES, DEMO_USERS } from '../mockData';
 
 /**
- * Seed Machines and initial complaints if Supabase tables are empty
+ * Seed Users, Machines and initial complaints if Supabase tables are empty
  */
 export async function seedInitialDataIfEmpty() {
   if (!isSupabaseConfigured()) return;
 
   try {
-    // 1. Check & Seed Machines
+    // 1. Check & Seed Users
+    const { data: existingUsers } = await supabase.from('users').select('id').limit(1);
+    if (!existingUsers || existingUsers.length === 0) {
+      console.log('Seeding initial user accounts to Supabase...');
+      const userPayloads = DEMO_USERS.map(u => ({
+        employee_id: u.employeeId,
+        name: u.name,
+        role: u.role,
+        department: u.department,
+        discipline: u.discipline || null,
+        password: u.password || '123'
+      }));
+      await supabase.from('users').upsert(userPayloads, { onConflict: 'employee_id' });
+    }
+
+    // 2. Check & Seed Machines
     const { data: existingMachines } = await supabase.from('machines').select('id').limit(1);
     if (!existingMachines || existingMachines.length === 0) {
       console.log('Seeding 20 press machines to Supabase...');
@@ -24,7 +39,7 @@ export async function seedInitialDataIfEmpty() {
       await supabase.from('machines').upsert(machinePayloads);
     }
 
-    // 2. Check & Seed Initial Complaints
+    // 3. Check & Seed Initial Complaints
     const { data: existingComplaints } = await supabase.from('complaints').select('id').limit(1);
     if (!existingComplaints || existingComplaints.length === 0) {
       console.log('Seeding initial complaints to Supabase...');
@@ -57,6 +72,59 @@ export async function seedInitialDataIfEmpty() {
   } catch (err) {
     console.warn('Initial data seeding skipped:', err.message);
   }
+}
+
+/**
+ * Authenticate User Credentials against Supabase database or local accounts
+ */
+export async function authenticateUser(employeeId, password) {
+  const cleanEmpId = employeeId.trim().toUpperCase();
+
+  if (isSupabaseConfigured()) {
+    try {
+      await seedInitialDataIfEmpty();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('employee_id', cleanEmpId)
+        .single();
+
+      if (data && !error) {
+        if (data.password === password) {
+          return {
+            success: true,
+            user: {
+              id: data.id,
+              employeeId: data.employee_id,
+              name: data.name,
+              role: data.role,
+              department: data.department,
+              discipline: data.discipline
+            }
+          };
+        } else {
+          return { success: false, error: 'Incorrect password entered.' };
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase auth check failed, checking local users:', err.message);
+    }
+  }
+
+  // Fallback to DEMO_USERS
+  const found = DEMO_USERS.find(
+    u => u.employeeId.toUpperCase() === cleanEmpId
+  );
+
+  if (found) {
+    if (found.password === password) {
+      return { success: true, user: found };
+    } else {
+      return { success: false, error: 'Incorrect password entered.' };
+    }
+  }
+
+  return { success: false, error: 'Employee ID not found. Try EMP-7801, EMP-4402, or EMP-1001.' };
 }
 
 /**

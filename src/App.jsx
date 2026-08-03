@@ -10,15 +10,39 @@ import AnalyticsDashboard from './components/AnalyticsDashboard';
 import HistoryView from './components/HistoryView';
 import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, Wifi, History, Smartphone, HelpCircle } from 'lucide-react';
 import { fetchComplaints, createComplaintInDb, updateComplaintInDb, subscribeToRealtimeComplaints } from './services/dbService';
-
+import { requestNotificationPermission, sendAlertNotification } from './services/notificationService';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [currentRole, setCurrentRole] = useState('Operator');
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('titan_sdmms_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [currentRole, setCurrentRole] = useState(() => {
+    try {
+      const saved = localStorage.getItem('titan_sdmms_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (u.role === 'Operator') return 'Operator';
+        if (u.role === 'Technician') return 'Technician';
+        if (u.role === 'Supervisor' || u.role === 'Admin') return 'Supervisor';
+      }
+    } catch (e) {}
+    return 'Operator';
+  });
   const [complaints, setComplaints] = useState(INITIAL_COMPLAINTS);
   const [isLiveDatabase, setIsLiveDatabase] = useState(false);
   const [activeTab, setActiveTab] = useState('raise');
   const [selectedComplaintId, setSelectedComplaintId] = useState(complaints[0]?.id || '');
+  const [recentNotification, setRecentNotification] = useState(null);
+
+  // Request browser notification permissions on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   // Load complaints from Supabase on mount (or fallback to local data)
   useEffect(() => {
@@ -33,8 +57,18 @@ export default function App() {
     loadData();
 
     // Subscribe to realtime database changes if Supabase is active
-    const unsubscribe = subscribeToRealtimeComplaints(() => {
+    const unsubscribe = subscribeToRealtimeComplaints((payload) => {
       loadData();
+      if (payload && payload.eventType === 'INSERT') {
+        const newRecord = payload.new;
+        sendAlertNotification({
+          title: `🚨 CRITICAL BREAKDOWN: ${newRecord.machine_name}`,
+          message: `${newRecord.fault_name} reported by ${newRecord.operator_name}`,
+          priority: newRecord.priority
+        });
+        setRecentNotification(`Alert: ${newRecord.machine_name} - ${newRecord.fault_name}`);
+        setTimeout(() => setRecentNotification(null), 6000);
+      }
     });
 
     return () => unsubscribe();
@@ -45,9 +79,13 @@ export default function App() {
     if (user.role === 'Operator') setCurrentRole('Operator');
     else if (user.role === 'Technician') setCurrentRole('Technician');
     else if (user.role === 'Supervisor' || user.role === 'Admin') setCurrentRole('Supervisor');
+    requestNotificationPermission();
   };
 
   const handleLogout = () => {
+    try {
+      localStorage.removeItem('titan_sdmms_user');
+    } catch (e) {}
     setCurrentUser(null);
   };
 
@@ -55,8 +93,19 @@ export default function App() {
     setComplaints([newCmp, ...complaints]);
     setSelectedComplaintId(newCmp.id);
     setActiveTab('active');
+
+    // Trigger instant alert sound chime and push notification to supervisors & technicians
+    sendAlertNotification({
+      title: `🚨 BREAKDOWN ALERT: ${newCmp.machineName}`,
+      message: `${newCmp.categoryName} -> ${newCmp.faultName} (Priority: ${newCmp.priority})`,
+      priority: newCmp.priority
+    });
+    setRecentNotification(`🚨 Breakdown Reported: ${newCmp.machineName} - ${newCmp.faultName}`);
+    setTimeout(() => setRecentNotification(null), 6000);
+
     await createComplaintInDb(newCmp);
   };
+
 
   const handleUpdateStatus = async (complaintId, updatedFields) => {
     setComplaints(complaints.map(c => 
@@ -91,6 +140,15 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-20 md:pb-6">
       {/* Top App Download Banner */}
       <InstallPromptBar />
+
+      {/* Real-time Emergency Alert Toast Banner */}
+      {recentNotification && (
+        <div className="bg-gradient-to-r from-rose-600 to-amber-600 text-white font-bold text-xs py-2 px-4 text-center shadow-lg animate-pulse flex items-center justify-center gap-2 z-50">
+          <Activity className="w-4 h-4 animate-spin" />
+          <span>{recentNotification}</span>
+        </div>
+      )}
+
 
       {/* Desktop / Tablet Professional Top Navigation Bar */}
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
