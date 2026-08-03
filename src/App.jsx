@@ -7,8 +7,10 @@ import LiveTimeline from './components/LiveTimeline';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
-import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, Wifi } from 'lucide-react';
+import HistoryView from './components/HistoryView';
+import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, Wifi, History, Smartphone, HelpCircle } from 'lucide-react';
 import { fetchComplaints, createComplaintInDb, updateComplaintInDb, subscribeToRealtimeComplaints } from './services/dbService';
+
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -123,6 +125,7 @@ export default function App() {
               { role: 'Operator', icon: User },
               { role: 'Technician', icon: Wrench },
               { role: 'Supervisor', icon: Shield },
+              { role: 'History', icon: History },
               { role: 'Analytics', icon: BarChart3 }
             ].map(({ role, icon: Icon }) => (
               <button
@@ -243,6 +246,11 @@ export default function App() {
           />
         )}
 
+        {/* Role: History View */}
+        {currentRole === 'History' && (
+          <HistoryView complaints={complaints} />
+        )}
+
         {/* Role: Analytics View */}
         {currentRole === 'Analytics' && (
           <AnalyticsDashboard complaints={complaints} />
@@ -250,12 +258,13 @@ export default function App() {
       </main>
 
       {/* MOBILE FIXED BOTTOM NAVIGATION DOCK (Thumb-Friendly for Smartphones) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-lg px-2 py-1.5 z-50">
-        <div className="grid grid-cols-4 gap-1 text-center">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-lg px-1 py-1.5 z-50">
+        <div className="grid grid-cols-5 gap-0.5 text-center">
           {[
             { role: 'Operator', label: 'Report', icon: PlusCircle },
-            { role: 'Technician', label: 'Technician', icon: Wrench },
+            { role: 'Technician', label: 'Tech', icon: Wrench },
             { role: 'Supervisor', label: 'Supervisor', icon: Shield },
+            { role: 'History', label: 'History', icon: History },
             { role: 'Analytics', label: 'Analytics', icon: BarChart3 }
           ].map(({ role, label, icon: Icon }) => {
             const isActive = currentRole === role;
@@ -274,6 +283,7 @@ export default function App() {
           })}
         </div>
       </nav>
+
     </div>
   );
 }
