@@ -1,0 +1,246 @@
+import React, { useState } from 'react';
+import { INITIAL_COMPLAINTS, MACHINES } from './mockData';
+import LoginModal from './components/LoginModal';
+import InstallPromptBar from './components/InstallPromptBar';
+import ComplaintForm from './components/ComplaintForm';
+import LiveTimeline from './components/LiveTimeline';
+import TechnicianDashboard from './components/TechnicianDashboard';
+import SupervisorDashboard from './components/SupervisorDashboard';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity } from 'lucide-react';
+
+export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentRole, setCurrentRole] = useState('Operator');
+  const [complaints, setComplaints] = useState(INITIAL_COMPLAINTS);
+  const [activeTab, setActiveTab] = useState('raise');
+  const [selectedComplaintId, setSelectedComplaintId] = useState(complaints[0]?.id || '');
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    if (user.role === 'Operator') setCurrentRole('Operator');
+    else if (user.role === 'Technician') setCurrentRole('Technician');
+    else if (user.role === 'Supervisor' || user.role === 'Admin') setCurrentRole('Supervisor');
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+  };
+
+  const handleAddComplaint = (newCmp) => {
+    setComplaints([newCmp, ...complaints]);
+    setSelectedComplaintId(newCmp.id);
+    setActiveTab('active');
+  };
+
+  const handleUpdateStatus = (complaintId, updatedFields) => {
+    setComplaints(complaints.map(c => 
+      c.id === complaintId ? { ...c, ...updatedFields } : c
+    ));
+  };
+
+  const handleAssignTechnician = (complaintId, techName) => {
+    handleUpdateStatus(complaintId, {
+      assignedTechnician: techName,
+      status: 'Assigned',
+      assignedTime: new Date().toISOString()
+    });
+  };
+
+  const handleVerifyComplaint = (complaintId) => {
+    handleUpdateStatus(complaintId, {
+      status: 'Closed',
+      verifiedTime: new Date().toISOString()
+    });
+  };
+
+  const selectedComplaint = complaints.find(c => c.id === selectedComplaintId) || complaints[0];
+
+  if (!currentUser) {
+    return <LoginModal onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-20 md:pb-6">
+      {/* Top App Download Banner */}
+      <InstallPromptBar />
+
+      {/* Desktop / Tablet Professional Top Navigation Bar */}
+      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+          {/* Brand Identifier */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
+              <Wrench className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm tracking-tight text-white">TITAN SDMMS</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-blue-400">
+                  BACK COVER DEPT
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400">Digital Maintenance Management System</p>
+            </div>
+          </div>
+
+          {/* Desktop Role View Switcher */}
+          <div className="hidden md:flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            {[
+              { role: 'Operator', icon: User },
+              { role: 'Technician', icon: Wrench },
+              { role: 'Supervisor', icon: Shield },
+              { role: 'Analytics', icon: BarChart3 }
+            ].map(({ role, icon: Icon }) => (
+              <button
+                key={role}
+                onClick={() => setCurrentRole(role)}
+                className={`px-3 py-1.5 rounded-md font-bold transition-all flex items-center gap-1.5 ${
+                  currentRole === role
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {role}
+              </button>
+            ))}
+          </div>
+
+          {/* User Profile & Logout */}
+          <div className="flex items-center gap-2.5">
+            <div className="text-right text-xs">
+              <div className="font-bold text-slate-200">{currentUser.name}</div>
+              <div className="text-[10px] text-slate-400">{currentUser.role} ({currentUser.employeeId})</div>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="p-1.5 rounded bg-slate-800 hover:bg-rose-600/20 text-slate-400 hover:text-rose-400 transition-colors border border-slate-700"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Workspace Layout (Supports Dual-Pane Widescreen on Desktop) */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 space-y-5">
+        {/* Role: Operator View */}
+        {currentRole === 'Operator' && (
+          <div className="space-y-4">
+            {/* Operator Sub-tab selector */}
+            <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-xs">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setActiveTab('raise')}
+                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${
+                    activeTab === 'raise' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  + Raise Complaint
+                </button>
+                <button
+                  onClick={() => setActiveTab('active')}
+                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${
+                    activeTab === 'active' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Track Active ({complaints.filter(c => c.status !== 'Closed').length})
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">Active Line: <strong>20 Machines</strong></span>
+            </div>
+
+            {/* Desktop Dual-Pane Grid layout for Raise vs Track */}
+            {activeTab === 'raise' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                <div className="lg:col-span-7">
+                  <ComplaintForm onSubmitSuccess={handleAddComplaint} />
+                </div>
+                <div className="lg:col-span-5 space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Live Active Complaint Timeline</h3>
+                  {selectedComplaint ? (
+                    <LiveTimeline complaint={selectedComplaint} />
+                  ) : (
+                    <div className="p-6 text-center text-xs text-slate-500 bg-slate-900 rounded-xl border border-slate-800">
+                      No active complaints selected.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {complaints.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedComplaintId(c.id)}
+                      className={`px-3 py-2 rounded-lg text-xs border text-left flex-shrink-0 transition-all ${
+                        selectedComplaintId === c.id
+                          ? 'bg-blue-600/20 border-blue-500 text-white font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <div>{c.machineName}</div>
+                      <div className="text-[10px] text-slate-400">{c.faultName} ({c.status})</div>
+                    </button>
+                  ))}
+                </div>
+                {selectedComplaint && <LiveTimeline complaint={selectedComplaint} />}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Role: Technician View */}
+        {currentRole === 'Technician' && (
+          <TechnicianDashboard
+            complaints={complaints}
+            onUpdateStatus={handleUpdateStatus}
+          />
+        )}
+
+        {/* Role: Supervisor View */}
+        {currentRole === 'Supervisor' && (
+          <SupervisorDashboard
+            complaints={complaints}
+            onAssignTechnician={handleAssignTechnician}
+            onVerifyComplaint={handleVerifyComplaint}
+          />
+        )}
+
+        {/* Role: Analytics View */}
+        {currentRole === 'Analytics' && (
+          <AnalyticsDashboard complaints={complaints} />
+        )}
+      </main>
+
+      {/* MOBILE FIXED BOTTOM NAVIGATION DOCK (Thumb-Friendly for Smartphones) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-lg px-2 py-1.5 z-50">
+        <div className="grid grid-cols-4 gap-1 text-center">
+          {[
+            { role: 'Operator', label: 'Report', icon: PlusCircle },
+            { role: 'Technician', label: 'Technician', icon: Wrench },
+            { role: 'Supervisor', label: 'Supervisor', icon: Shield },
+            { role: 'Analytics', label: 'Analytics', icon: BarChart3 }
+          ].map(({ role, label, icon: Icon }) => {
+            const isActive = currentRole === role;
+            return (
+              <button
+                key={role}
+                onClick={() => setCurrentRole(role)}
+                className={`py-1 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold transition-all ${
+                  isActive ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Icon className="w-4 h-4 mb-0.5" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
+  );
+}
