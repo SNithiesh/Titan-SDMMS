@@ -109,24 +109,29 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
                       {c.status === 'New' && (
                         <button
                           onClick={() => setSelectedComplaintForAssign(c)}
-                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded flex items-center gap-1"
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded flex items-center gap-1 transition-all shadow-sm"
                         >
                           <UserPlus className="w-3.5 h-3.5" /> Assign Tech
                         </button>
                       )}
 
-                      {c.status === 'Completed' && (
+                      {c.status !== 'Closed' && (
                         <button
                           onClick={() => onVerifyComplaint(c.id)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded flex items-center gap-1"
+                          title="Verify quality and close work order"
+                          className={`px-2.5 py-1 text-white font-bold rounded flex items-center gap-1 transition-all shadow-sm ${
+                            c.status === 'Completed' 
+                              ? 'bg-emerald-600 hover:bg-emerald-500 animate-pulse' 
+                              : 'bg-slate-800 hover:bg-emerald-700 text-slate-200'
+                          }`}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Verify & Close
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Verify & Close
                         </button>
                       )}
 
                       {c.status === 'Closed' && (
-                        <span className="text-emerald-400 font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+                        <span className="px-2.5 py-1 bg-emerald-950/60 border border-emerald-800/80 text-emerald-400 text-[11px] font-bold rounded flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Closed & Verified
                         </span>
                       )}
                     </div>

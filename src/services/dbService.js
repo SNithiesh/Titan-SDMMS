@@ -1,5 +1,63 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { INITIAL_COMPLAINTS, DEMO_USERS } from '../mockData';
+import { INITIAL_COMPLAINTS, MACHINES } from '../mockData';
+
+/**
+ * Seed Machines and initial complaints if Supabase tables are empty
+ */
+export async function seedInitialDataIfEmpty() {
+  if (!isSupabaseConfigured()) return;
+
+  try {
+    // 1. Check & Seed Machines
+    const { data: existingMachines } = await supabase.from('machines').select('id').limit(1);
+    if (!existingMachines || existingMachines.length === 0) {
+      console.log('Seeding 20 press machines to Supabase...');
+      const machinePayloads = MACHINES.map(m => ({
+        id: m.id,
+        name: m.name,
+        code: m.code,
+        location: m.location,
+        type: m.type,
+        status: m.status,
+        criticality: m.criticality
+      }));
+      await supabase.from('machines').upsert(machinePayloads);
+    }
+
+    // 2. Check & Seed Initial Complaints
+    const { data: existingComplaints } = await supabase.from('complaints').select('id').limit(1);
+    if (!existingComplaints || existingComplaints.length === 0) {
+      console.log('Seeding initial complaints to Supabase...');
+      const complaintPayloads = INITIAL_COMPLAINTS.map(c => ({
+        id: c.id,
+        machine_id: c.machineId,
+        machine_name: c.machineName,
+        operator_name: c.operatorName,
+        employee_id: c.employeeId || 'EMP-1001',
+        department: c.department || 'Back Cover Dept',
+        shift: c.shift || 'Shift A',
+        category_id: c.categoryId || 'mechanical',
+        category_name: c.categoryName || 'Mechanical Maintenance',
+        fault_name: c.faultName,
+        priority: c.priority || 'High',
+        description: c.description || '',
+        status: c.status || 'New',
+        assigned_technician: c.assignedTechnician || 'Unassigned',
+        created_time: c.createdTime || new Date().toISOString(),
+        assigned_time: c.assignedTime || null,
+        accepted_time: c.acceptedTime || null,
+        repair_started_time: c.repairStartedTime || null,
+        completed_time: c.completedTime || null,
+        verified_time: c.verifiedTime || null,
+        remarks: c.remarks || '',
+        parts_changed: c.partsChanged || ''
+      }));
+      await supabase.from('complaints').upsert(complaintPayloads);
+    }
+  } catch (err) {
+    console.warn('Initial data seeding skipped:', err.message);
+  }
+}
 
 /**
  * Fetch all complaints from Supabase or fallback to mock data
@@ -10,6 +68,8 @@ export async function fetchComplaints() {
   }
 
   try {
+    await seedInitialDataIfEmpty();
+
     const { data, error } = await supabase
       .from('complaints')
       .select('*')
@@ -20,7 +80,6 @@ export async function fetchComplaints() {
       return { data: INITIAL_COMPLAINTS, isLive: false };
     }
 
-    // Map table column names to app camelCase properties if needed
     const mapped = data.map(item => ({
       id: item.id,
       machineId: item.machine_id,
@@ -54,6 +113,29 @@ export async function fetchComplaints() {
 }
 
 /**
+ * Ensure foreign key machine exists before saving complaint
+ */
+async function ensureMachineExists(machineId, machineName) {
+  if (!isSupabaseConfigured() || !machineId) return;
+  try {
+    const { data } = await supabase.from('machines').select('id').eq('id', machineId).single();
+    if (!data) {
+      await supabase.from('machines').insert([{
+        id: machineId,
+        name: machineName || machineId,
+        code: machineId,
+        location: 'Back Cover Line',
+        type: 'Friction Press',
+        status: 'Operational',
+        criticality: 'High'
+      }]);
+    }
+  } catch (e) {
+    // ignore duplicate
+  }
+}
+
+/**
  * Save a new complaint to Supabase
  */
 export async function createComplaintInDb(newCmp) {
@@ -62,6 +144,8 @@ export async function createComplaintInDb(newCmp) {
   }
 
   try {
+    await ensureMachineExists(newCmp.machineId, newCmp.machineName);
+
     const dbPayload = {
       id: newCmp.id,
       machine_id: newCmp.machineId,
@@ -70,8 +154,8 @@ export async function createComplaintInDb(newCmp) {
       employee_id: newCmp.employeeId || 'EMP-1001',
       department: newCmp.department || 'Back Cover Dept',
       shift: newCmp.shift || 'Shift A',
-      category_id: newCmp.categoryId || 'CAT-01',
-      category_name: newCmp.categoryName || 'General',
+      category_id: newCmp.categoryId || 'mechanical',
+      category_name: newCmp.categoryName || 'General Maintenance',
       fault_name: newCmp.faultName,
       priority: newCmp.priority || 'High',
       description: newCmp.description || '',
