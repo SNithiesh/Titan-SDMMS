@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INITIAL_COMPLAINTS, MACHINES } from './mockData';
 import LoginModal from './components/LoginModal';
 import InstallPromptBar from './components/InstallPromptBar';
@@ -7,14 +7,36 @@ import LiveTimeline from './components/LiveTimeline';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
-import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity } from 'lucide-react';
+import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, Wifi } from 'lucide-react';
+import { fetchComplaints, createComplaintInDb, updateComplaintInDb, subscribeToRealtimeComplaints } from './services/dbService';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentRole, setCurrentRole] = useState('Operator');
   const [complaints, setComplaints] = useState(INITIAL_COMPLAINTS);
+  const [isLiveDatabase, setIsLiveDatabase] = useState(false);
   const [activeTab, setActiveTab] = useState('raise');
   const [selectedComplaintId, setSelectedComplaintId] = useState(complaints[0]?.id || '');
+
+  // Load complaints from Supabase on mount (or fallback to local data)
+  useEffect(() => {
+    async function loadData() {
+      const res = await fetchComplaints();
+      if (res.data && res.data.length > 0) {
+        setComplaints(res.data);
+        if (res.data[0]?.id) setSelectedComplaintId(res.data[0].id);
+      }
+      setIsLiveDatabase(res.isLive);
+    }
+    loadData();
+
+    // Subscribe to realtime database changes if Supabase is active
+    const unsubscribe = subscribeToRealtimeComplaints(() => {
+      loadData();
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
@@ -27,17 +49,20 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  const handleAddComplaint = (newCmp) => {
+  const handleAddComplaint = async (newCmp) => {
     setComplaints([newCmp, ...complaints]);
     setSelectedComplaintId(newCmp.id);
     setActiveTab('active');
+    await createComplaintInDb(newCmp);
   };
 
-  const handleUpdateStatus = (complaintId, updatedFields) => {
+  const handleUpdateStatus = async (complaintId, updatedFields) => {
     setComplaints(complaints.map(c => 
       c.id === complaintId ? { ...c, ...updatedFields } : c
     ));
+    await updateComplaintInDb(complaintId, updatedFields);
   };
+
 
   const handleAssignTechnician = (complaintId, techName) => {
     handleUpdateStatus(complaintId, {
@@ -78,6 +103,14 @@ export default function App() {
                 <span className="font-extrabold text-sm tracking-tight text-white">TITAN SDMMS</span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-blue-400">
                   BACK COVER DEPT
+                </span>
+                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border flex items-center gap-1 ${
+                  isLiveDatabase 
+                    ? 'bg-emerald-950/80 border-emerald-700 text-emerald-400' 
+                    : 'bg-amber-950/80 border-amber-700 text-amber-400'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isLiveDatabase ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                  {isLiveDatabase ? 'LIVE SUPABASE' : 'DEMO MODE'}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">Digital Maintenance Management System</p>
