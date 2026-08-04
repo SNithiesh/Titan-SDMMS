@@ -7,11 +7,24 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Forward all /api requests to Express backend
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false
+      }
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react')) return 'react-vendor';
+            if (id.includes('recharts')) return 'recharts-vendor';
+            if (id.includes('lucide-react')) return 'lucide-vendor';
+            return 'vendor';
+          }
+        }
       }
     }
   },

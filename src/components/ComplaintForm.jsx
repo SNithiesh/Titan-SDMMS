@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FAULT_CATEGORIES, MACHINES } from '../mockData';
-import { ShieldAlert, CheckCircle2, Save, X, Search } from 'lucide-react';
+import { CheckCircle2, Save, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ComplaintForm({ onSubmitSuccess }) {

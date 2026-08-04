@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { INITIAL_COMPLAINTS } from './mockData';
 import LoginModal from './components/LoginModal';
-import InstallPromptBar from './components/InstallPromptBar';
+// InstallPromptBar removed
 import ComplaintForm from './components/ComplaintForm';
 import LiveTimeline from './components/LiveTimeline';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import HistoryView from './components/HistoryView';
-import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, History, Settings, Database, Sun, Moon, Clock } from 'lucide-react';
+import { Wrench, Shield, User, BarChart3, LogOut, Activity, History, Database, Sun, Moon, Clock } from 'lucide-react';
 import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import { fetchComplaints, createComplaint, assignTechnician, acceptJob, startRepair, completeRepair, verifyAndClose } from './api/complaint.api.js';

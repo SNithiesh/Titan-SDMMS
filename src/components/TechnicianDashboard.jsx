@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wrench, Info, X, ChevronDown, ChevronUp, FileText, Clock, AlertTriangle, Activity } from 'lucide-react';
+import { Wrench, X, ChevronDown, ChevronUp, FileText, Clock, AlertTriangle, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
