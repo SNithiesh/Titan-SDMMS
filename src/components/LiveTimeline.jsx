@@ -1,101 +1,106 @@
 import React from 'react';
-import { ShieldAlert, User, Wrench, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, User, Wrench, CheckCircle2, Clock, Check } from 'lucide-react';
 
 export default function LiveTimeline({ complaint }) {
   if (!complaint) return null;
 
-  const events = [];
-  
-  if (complaint.createdTime) {
-    events.push({
-      time: complaint.createdTime,
-      title: 'FAULT REPORTED',
-      desc: `Reported by Operator: ${complaint.operatorName || 'Unknown'}`,
-      icon: ShieldAlert,
-      color: 'text-[#E81123]',
-      bg: 'bg-[#E81123]/20'
-    });
-  }
+  // Define the standard lifecycle stages
+  const STAGES = [
+    { id: 'reported', label: 'FAULT REPORTED', icon: ShieldAlert, timeKey: 'createdTime', getDesc: (c) => `By Operator: ${c.operatorName || 'Unknown'}`, color: 'text-[#E81123]', border: 'border-[#E81123]', bg: 'bg-[#E81123]' },
+    { id: 'assigned', label: 'TECHNICIAN ASSIGNED', icon: User, timeKey: 'assignedTime', getDesc: (c) => `Assigned to: ${c.assignedTechnician}`, color: 'text-[var(--status-info)]', border: 'border-[var(--status-info)]', bg: 'bg-[var(--status-info)]' },
+    { id: 'accepted', label: 'JOB ACCEPTED', icon: CheckCircle2, timeKey: 'acceptedTime', getDesc: () => 'Technician acknowledged assignment.', color: 'text-[#D83B01]', border: 'border-[#D83B01]', bg: 'bg-[#D83B01]' },
+    { id: 'progress', label: 'REPAIR IN PROGRESS', icon: Wrench, timeKey: 'repairStartedTime', getDesc: () => 'Active work commenced.', color: 'text-[#D83B01]', border: 'border-[#D83B01]', bg: 'bg-[#D83B01]' },
+    { id: 'completed', label: 'REPAIR COMPLETED', icon: CheckCircle2, timeKey: 'completedTime', getDesc: (c) => `Remarks: ${c.remarks || 'None'}\nParts: ${c.partsChanged || 'None'}`, color: 'text-[#107C10]', border: 'border-[#107C10]', bg: 'bg-[#107C10]' },
+    { id: 'verified', label: 'SUPERVISOR VERIFIED', icon: ShieldAlert, timeKey: 'verifiedTime', getDesc: () => 'Job officially closed.', color: 'text-[var(--text-muted)]', border: 'border-[var(--text-muted)]', bg: 'bg-[var(--text-muted)]' },
+  ];
 
-  if (complaint.assignedTime) {
-    events.push({
-      time: complaint.assignedTime,
-      title: 'TECHNICIAN ASSIGNED',
-      desc: `Assigned to: ${complaint.assignedTechnician}`,
-      icon: User,
-      color: 'text-[var(--status-info)]',
-      bg: 'bg-[var(--status-info)]/20'
-    });
-  }
-
-  if (complaint.acceptedTime) {
-    events.push({
-      time: complaint.acceptedTime,
-      title: 'JOB ACCEPTED',
-      desc: 'Technician acknowledged the assignment.',
-      icon: CheckCircle2,
-      color: 'text-[#D83B01]',
-      bg: 'bg-[#D83B01]/20'
-    });
-  }
-
-  if (complaint.repairStartedTime) {
-    events.push({
-      time: complaint.repairStartedTime,
-      title: 'REPAIR IN PROGRESS',
-      desc: 'Technician started work on the asset.',
-      icon: Wrench,
-      color: 'text-[#D83B01]',
-      bg: 'bg-[#D83B01]/20'
-    });
-  }
-
-  if (complaint.completedTime) {
-    events.push({
-      time: complaint.completedTime,
-      title: 'REPAIR COMPLETED',
-      desc: `Remarks: ${complaint.remarks || 'None'} | Parts: ${complaint.partsChanged || 'None'}`,
-      icon: CheckCircle2,
-      color: 'text-[#107C10]',
-      bg: 'bg-[#107C10]/20'
-    });
-  }
-
-  if (complaint.verifiedTime) {
-    events.push({
-      time: complaint.verifiedTime,
-      title: 'SUPERVISOR VERIFIED & CLOSED',
-      desc: 'Job officially closed in system.',
-      icon: ShieldAlert,
-      color: 'text-[var(--text-muted)]',
-      bg: 'bg-[var(--border-subtle)]'
-    });
-  }
-
-  // Sort events chronologically
-  events.sort((a, b) => new Date(a.time) - new Date(b.time));
+  const calculateDelta = (start, end) => {
+    if (!start || !end) return null;
+    const diffMs = new Date(end) - new Date(start);
+    const diffMins = Math.round(diffMs / 60000);
+    if (diffMins < 60) return `${diffMins}m`;
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return `${hours}h ${mins}m`;
+  };
 
   return (
-    <div className="flex flex-col gap-2">
-      {events.map((event, index) => {
-        const Icon = event.icon;
+    <div className="flex flex-col p-2">
+      {STAGES.map((stage, index) => {
+        const timeVal = complaint[stage.timeKey];
+        const isCompleted = !!timeVal;
+        
+        // It's the "active" stage if this stage isn't completed, but the previous one IS completed.
+        // Or if it's the very first stage and it's somehow not completed (rare).
+        const prevTimeVal = index > 0 ? complaint[STAGES[index-1].timeKey] : new Date().toISOString();
+        const isActive = !isCompleted && !!prevTimeVal;
+        
+        // It's "pending" if the previous stage is also not completed.
+        const isPending = !isCompleted && !isActive;
+
+        // Calculate time taken from previous step
+        let deltaText = null;
+        if (isCompleted && index > 0) {
+           deltaText = calculateDelta(complaint[STAGES[index-1].timeKey], timeVal);
+        } else if (isActive && prevTimeVal) {
+           deltaText = calculateDelta(prevTimeVal, new Date());
+        }
+
+        const Icon = stage.icon;
+
         return (
-          <div key={index} className="flex gap-3 bg-[var(--bg-app)] border border-[var(--border-strong)] p-2">
-            <div className={`w-8 h-8 shrink-0 flex items-center justify-center border border-[var(--border-strong)] ${event.bg}`}>
-              <Icon className={`w-4 h-4 ${event.color}`} />
+          <div key={stage.id} className="relative flex gap-4">
+            
+            {/* The Vertical Line Connecting Nodes (don't render on last item) */}
+            {index < STAGES.length - 1 && (
+              <div 
+                className={`absolute left-3.5 top-8 bottom-[-8px] w-[2px] z-0 
+                  ${isCompleted ? stage.bg : 'bg-[var(--border-strong)] opacity-30'}
+                `} 
+              />
+            )}
+
+            {/* The Node Icon */}
+            <div className="relative z-10 flex flex-col items-center shrink-0">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-300
+                ${isCompleted ? `${stage.bg} border-transparent text-white shadow-[0_0_8px_rgba(0,0,0,0.5)]` : ''}
+                ${isActive ? `${stage.border} bg-[var(--bg-app)] shadow-[0_0_10px_currentColor] animate-pulse ${stage.color}` : ''}
+                ${isPending ? 'border-[var(--border-strong)] bg-[var(--bg-panel)] text-[var(--text-muted)] opacity-50' : ''}
+              `}>
+                {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-3.5 h-3.5" />}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${event.color}`}>
-                  {event.title}
+
+            {/* Content Box */}
+            <div className={`flex-1 pb-6 pt-0.5 ${isPending ? 'opacity-40' : ''}`}>
+              
+              {/* Event Details */}
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${isCompleted || isActive ? stage.color : 'text-[var(--text-muted)]'}`}>
+                  {stage.label}
+                  {isActive && <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-[var(--bg-app)] border border-current opacity-80 animate-pulse">ACTIVE NOW</span>}
                 </span>
-                <span className="text-[10px] font-mono text-[var(--text-muted)] whitespace-nowrap">
-                  {new Date(event.time).toLocaleString()}
-                </span>
+                
+                {isCompleted && (
+                  <span className="text-[10px] font-mono text-[var(--text-secondary)] whitespace-nowrap">
+                    {new Date(timeVal).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                  </span>
+                )}
               </div>
-              <div className="text-xs text-[var(--text-primary)] mt-1 break-words">
-                {event.desc}
+              
+              <div className="text-xs text-[var(--text-primary)] break-words whitespace-pre-wrap">
+                {isCompleted ? stage.getDesc(complaint) : (isActive ? 'Awaiting action...' : 'Pending')}
               </div>
+
+              {/* Time Delta Analytics */}
+              {(deltaText) && (
+                <div className={`inline-flex items-center gap-1 mt-2 text-[10px] font-mono font-bold px-2 py-0.5 rounded border 
+                  ${isCompleted ? 'bg-[var(--bg-panel)] text-[var(--text-secondary)] border-[var(--border-subtle)]' : 'bg-[#D83B01]/10 text-[#D83B01] border-[#D83B01]/30 animate-pulse'}
+                `}>
+                  <Clock className="w-3 h-3" />
+                  {isCompleted ? `Took ${deltaText}` : `Active for ${deltaText}`}
+                </div>
+              )}
             </div>
           </div>
         );
