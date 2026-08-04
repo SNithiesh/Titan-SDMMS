@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// All API calls go to Express backend — never directly to Supabase from frontend
-// In development: Vite proxy forwards /api → http://localhost:3001/api
-// In production: NGINX forwards /api → Express server
+// All API calls go to Express backend
+// Local: Vite proxy forwards /api → http://localhost:3001/api
+// Production (Cloud): VITE_API_URL points to the live backend URL
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 });

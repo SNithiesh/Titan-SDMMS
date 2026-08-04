@@ -8,14 +8,16 @@ import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import HistoryView from './components/HistoryView';
-import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, History } from 'lucide-react';
+import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, History, Settings, Database, Sun, Moon } from 'lucide-react';
 import { useAuth } from './context/AuthContext.jsx';
+import { useTheme } from './context/ThemeContext.jsx';
 import { fetchComplaints, createComplaint, assignTechnician, acceptJob, startRepair, completeRepair, verifyAndClose } from './api/complaint.api.js';
 import { subscribeToRealtimeComplaints } from './services/supabaseClient.js';
 import { requestNotificationPermission, sendAlertNotification } from './services/notificationService';
 
 export default function App() {
   const { currentUser, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const [currentRole, setCurrentRole] = useState(() => {
     if (!currentUser) return 'Operator';
@@ -40,7 +42,7 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Load complaints via Express API (authenticated)
+  // Load complaints via Express API
   useEffect(() => {
     if (!currentUser) return;
 
@@ -53,25 +55,23 @@ export default function App() {
           setIsLiveDatabase(result.data.isLive !== false);
         }
       } catch (err) {
-        // If API call fails (backend not running), use local data
         console.warn('[APP] Backend not reachable, using local data:', err.message);
         setIsLiveDatabase(false);
       }
     }
     loadData();
 
-    // Keep real-time Supabase subscription for instant UI updates
     const unsubscribe = subscribeToRealtimeComplaints((payload) => {
       loadData();
       if (payload?.eventType === 'INSERT') {
         const r = payload.new;
         sendAlertNotification({
-          title: `🚨 BREAKDOWN: ${r.machine_name}`,
-          message: `${r.fault_name} reported by ${r.operator_name}`,
+          title: `BREAKDOWN: ${r.machine_name}`,
+          message: `${r.fault_name}`,
           priority: r.priority
         });
         setRecentNotification(`Alert: ${r.machine_name} - ${r.fault_name}`);
-        setTimeout(() => setRecentNotification(null), 6000);
+        setTimeout(() => setRecentNotification(null), 8000);
       }
     });
 
@@ -84,22 +84,16 @@ export default function App() {
     else setCurrentRole('Operator');
   };
 
-  const handleLogout = async () => {
-    await logout();
-  };
-
   const handleAddComplaint = async (newCmp) => {
     setComplaints(prev => [newCmp, ...prev]);
     setSelectedComplaintId(newCmp.id);
     setActiveTab('active');
 
     sendAlertNotification({
-      title: `🚨 BREAKDOWN ALERT: ${newCmp.machineName}`,
-      message: `${newCmp.faultName} (Priority: ${newCmp.priority})`,
+      title: `BREAKDOWN: ${newCmp.machineName}`,
+      message: `${newCmp.faultName}`,
       priority: newCmp.priority
     });
-    setRecentNotification(`🚨 Breakdown: ${newCmp.machineName} - ${newCmp.faultName}`);
-    setTimeout(() => setRecentNotification(null), 6000);
 
     try {
       await createComplaint({
@@ -119,38 +113,16 @@ export default function App() {
 
   const handleUpdateStatus = async (complaintId, updatedFields) => {
     setComplaints(prev => prev.map(c => c.id === complaintId ? { ...c, ...updatedFields } : c));
-
     try {
       const { status } = updatedFields;
-      if (status === 'Assigned') {
-        await assignTechnician(complaintId, updatedFields.assignedTechnician, updatedFields.assignedTechnician);
-      } else if (status === 'Accepted') {
-        await acceptJob(complaintId);
-      } else if (status === 'Repair Started') {
-        await startRepair(complaintId);
-      } else if (status === 'Completed') {
-        await completeRepair(complaintId, updatedFields.remarks, updatedFields.partsChanged);
-      } else if (status === 'Closed') {
-        await verifyAndClose(complaintId);
-      }
+      if (status === 'Assigned') await assignTechnician(complaintId, updatedFields.assignedTechnician, updatedFields.assignedTechnician);
+      else if (status === 'Accepted') await acceptJob(complaintId);
+      else if (status === 'Repair Started') await startRepair(complaintId);
+      else if (status === 'Completed') await completeRepair(complaintId, updatedFields.remarks, updatedFields.partsChanged);
+      else if (status === 'Closed') await verifyAndClose(complaintId);
     } catch (err) {
-      console.warn('[APP] Status update via API failed, saved locally:', err.message);
+      console.warn('[APP] Status update failed:', err.message);
     }
-  };
-
-  const handleAssignTechnician = (complaintId, techName) => {
-    handleUpdateStatus(complaintId, {
-      assignedTechnician: techName,
-      status: 'Assigned',
-      assignedTime: new Date().toISOString()
-    });
-  };
-
-  const handleVerifyComplaint = (complaintId) => {
-    handleUpdateStatus(complaintId, {
-      status: 'Closed',
-      verifiedTime: new Date().toISOString()
-    });
   };
 
   const selectedComplaint = complaints.find(c => c.id === selectedComplaintId) || complaints[0];
@@ -159,187 +131,207 @@ export default function App() {
     return <LoginModal onLoginSuccess={handleLoginSuccess} />;
   }
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-20 md:pb-6">
-      <InstallPromptBar />
+  // Define navigation items based on role
+  const navItems = [];
+  if (currentUser.role === 'Operator') {
+    navItems.push({ id: 'Operator', label: 'Operator HMI', icon: User });
+  } else if (currentUser.role === 'Technician') {
+    navItems.push({ id: 'Technician', label: 'Tech Station', icon: Wrench });
+  } else if (currentUser.role === 'Supervisor' || currentUser.role === 'Admin') {
+    navItems.push(
+      { id: 'Supervisor', label: 'Command Center', icon: Shield },
+      { id: 'History', label: 'Audit Log', icon: History },
+      { id: 'Analytics', label: 'Plant Analytics', icon: BarChart3 }
+    );
+  }
 
+  return (
+    <div className="flex h-screen bg-[var(--bg-app)] text-[var(--text-primary)] font-sans antialiased overflow-hidden">
+      
+      {/* ── ALERTS (Fixed Top Right) ── */}
       {recentNotification && (
-        <div className="bg-gradient-to-r from-rose-600 to-amber-600 text-white font-bold text-xs py-2 px-4 text-center shadow-lg animate-pulse flex items-center justify-center gap-2 z-50">
+        <div className="fixed top-12 right-4 bg-[#E81123] text-white font-bold text-xs py-2 px-4 shadow-[0_4px_12px_rgba(0,0,0,0.5)] flex items-center gap-2 z-50 border border-[var(--border-strong)] rounded-sm">
           <Activity className="w-4 h-4 animate-spin" />
           <span>{recentNotification}</span>
         </div>
       )}
 
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
-              <Wrench className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-tight text-white">TITAN SDMMS</span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-blue-400">
-                  BACK COVER DEPT
-                </span>
-                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border flex items-center gap-1 ${
-                  isLiveDatabase
-                    ? 'bg-emerald-950/80 border-emerald-700 text-emerald-400'
-                    : 'bg-amber-950/80 border-amber-700 text-amber-400'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isLiveDatabase ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                  {isLiveDatabase ? 'LIVE DB' : 'DEMO MODE'}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">Smart Digital Maintenance Management System v2.0</p>
-            </div>
-          </div>
-
-          <div className="hidden md:flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-            {currentUser.role === 'Operator' && (
-              <span className="px-3 py-1.5 rounded-md font-bold text-white bg-blue-600 shadow-sm flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5" /> Operator Workspace
-              </span>
-            )}
-            {currentUser.role === 'Technician' && (
-              <span className="px-3 py-1.5 rounded-md font-bold text-white bg-blue-600 shadow-sm flex items-center gap-1.5">
-                <Wrench className="w-3.5 h-3.5" /> Technician Dashboard
-              </span>
-            )}
-            {(currentUser.role === 'Supervisor' || currentUser.role === 'Admin') && [
-              { role: 'Supervisor', icon: Shield },
-              { role: 'History', icon: History },
-              { role: 'Analytics', icon: BarChart3 }
-            ].map(({ role, icon: Icon }) => (
+      {/* ── LEFT SIDEBAR (Strict Industrial Layout) ── */}
+      <aside className="w-60 bg-[var(--bg-panel)] border-r border-[var(--border-strong)] flex flex-col hidden md:flex shrink-0">
+        <div className="h-12 flex items-center px-4 border-b border-[var(--border-strong)] bg-[var(--bg-panel)]">
+          <Wrench className="w-4 h-4 text-[var(--status-info)] mr-2" />
+          <span className="font-bold text-sm tracking-wide">TITAN SDMMS</span>
+        </div>
+        
+        <div className="p-3 text-[10px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold">
+          System Modules
+        </div>
+        
+        <nav className="flex-1 px-2 space-y-0.5">
+          {navItems.map((item) => {
+            const isSelected = currentRole === item.id;
+            return (
               <button
-                key={role}
-                onClick={() => setCurrentRole(role)}
-                className={`px-3 py-1.5 rounded-md font-bold transition-all flex items-center gap-1.5 ${
-                  currentRole === role
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                key={item.id}
+                onClick={() => setCurrentRole(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-sm transition-none ${
+                  isSelected 
+                    ? 'bg-[var(--bg-selected)] text-white border-l-2 border-[var(--status-info)]' 
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-hover)] hover:text-white border-l-2 border-transparent'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {role}
+                <item.icon className={`w-4 h-4 ${isSelected ? 'text-[var(--status-info)]' : ''}`} />
+                {item.label}
               </button>
-            ))}
-          </div>
+            )
+          })}
+        </nav>
 
-          <div className="flex items-center gap-2.5">
-            <div className="text-right text-xs">
-              <div className="font-bold text-slate-200">{currentUser.name}</div>
-              <div className="text-[10px] text-slate-400">{currentUser.role} ({currentUser.employeeId})</div>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Logout"
-              className="p-1.5 rounded bg-slate-800 hover:bg-rose-600/20 text-slate-400 hover:text-rose-400 transition-colors border border-slate-700"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+        <div className="p-4 border-t border-[var(--border-strong)] text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[var(--text-secondary)]">User:</span>
+            <span className="font-bold">{currentUser.employeeId}</span>
           </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 py-1.5 px-3 bg-[var(--border-subtle)] hover:bg-[#E81123] hover:text-white text-[var(--text-secondary)] transition-colors rounded-sm text-xs font-bold"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            End Shift
+          </button>
         </div>
-      </header>
+      </aside>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 space-y-5">
-        {currentRole === 'Operator' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-xs">
-              <div className="flex items-center gap-1.5">
+      {/* ── MAIN CONTENT AREA ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Top Context Bar */}
+        <header className="h-12 bg-[var(--bg-panel)] border-b border-[var(--border-strong)] flex items-center justify-between px-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wide">
+              {currentRole} WORKSPACE
+            </span>
+            <span className="text-[10px] bg-[var(--border-subtle)] px-1.5 py-0.5 text-[var(--text-primary)]">
+              BACK COVER DEPT
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleTheme}
+              className="flex items-center justify-center p-1.5 rounded-sm bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--status-info)]"
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <div className="md:hidden flex items-center gap-2">
+               <span className="text-xs font-bold text-[var(--text-primary)]">{currentUser.name}</span>
+               <button onClick={logout} className="p-1 bg-[var(--border-subtle)] text-[var(--text-secondary)] rounded-sm">
+                  <LogOut className="w-3.5 h-3.5" />
+               </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Dynamic Workspace Content */}
+        <main className="flex-1 overflow-auto p-4 bg-[var(--bg-app)]">
+          {currentRole === 'Operator' && (
+            <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col">
+              <div className="flex items-center gap-2 bg-[var(--bg-panel)] p-1.5 border border-[var(--border-strong)]">
                 <button
                   onClick={() => setActiveTab('raise')}
-                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${activeTab === 'raise' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                  className={`px-4 py-1.5 text-xs font-bold transition-none ${activeTab === 'raise' ? 'bg-[var(--status-info)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--border-subtle)]'}`}
                 >
-                  + Raise Complaint
+                  Create Maintenance Request
                 </button>
                 <button
                   onClick={() => setActiveTab('active')}
-                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${activeTab === 'active' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                  className={`px-4 py-1.5 text-xs font-bold transition-none ${activeTab === 'active' ? 'bg-[var(--status-info)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--border-subtle)]'}`}
                 >
-                  Track Active ({complaints.filter(c => c.status !== 'Closed').length})
+                  Active Requests [{complaints.filter(c => c.status !== 'Closed').length}]
                 </button>
               </div>
-              <span className="text-[11px] text-slate-400 hidden sm:inline">Active Line: <strong>20 Machines</strong></span>
-            </div>
 
-            {activeTab === 'raise' ? (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                <div className="lg:col-span-7">
-                  <ComplaintForm onSubmitSuccess={handleAddComplaint} />
-                </div>
-                <div className="lg:col-span-5 space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Live Active Complaint Timeline</h3>
-                  {selectedComplaint ? (
-                    <LiveTimeline complaint={selectedComplaint} />
-                  ) : (
-                    <div className="p-6 text-center text-xs text-slate-500 bg-slate-900 rounded-xl border border-slate-800">
-                      No active complaints selected.
+              {activeTab === 'raise' ? (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 h-full min-h-0">
+                  <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] overflow-auto">
+                     <ComplaintForm onSubmitSuccess={handleAddComplaint} />
+                  </div>
+                  <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] overflow-auto">
+                    <div className="px-4 py-2 border-b border-[var(--border-strong)] bg-[var(--bg-panel)] text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">
+                      System Audit Trail
                     </div>
-                  )}
+                    {selectedComplaint ? (
+                      <div className="p-4"><LiveTimeline complaint={selectedComplaint} /></div>
+                    ) : (
+                      <div className="p-4 text-xs text-[var(--text-muted)]">No active selection.</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {complaints.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedComplaintId(c.id)}
-                      className={`px-3 py-2 rounded-lg text-xs border text-left flex-shrink-0 transition-all ${
-                        selectedComplaintId === c.id
-                          ? 'bg-blue-600/20 border-blue-500 text-white font-bold'
-                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <div>{c.machineName}</div>
-                      <div className="text-[10px] text-slate-400">{c.faultName} ({c.status})</div>
-                    </button>
-                  ))}
+              ) : (
+                <div className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-strong)] flex flex-col h-full min-h-0">
+                  <div className="border-b border-[var(--border-strong)] bg-[var(--bg-panel)] p-2 flex gap-1 overflow-x-auto">
+                    {complaints.filter(c => c.status !== 'Closed').map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedComplaintId(c.id)}
+                        className={`px-3 py-1.5 text-xs text-left whitespace-nowrap border-l-2 ${
+                          selectedComplaintId === c.id
+                            ? 'bg-[var(--bg-selected)] border-[var(--status-info)] text-white font-bold'
+                            : 'bg-[var(--bg-app)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--border-subtle)]'
+                        }`}
+                      >
+                        <div>{c.machineName}</div>
+                        <div className="text-[10px] opacity-75">{c.status}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="p-4 overflow-auto flex-1">
+                    {selectedComplaint && <LiveTimeline complaint={selectedComplaint} />}
+                  </div>
                 </div>
-                {selectedComplaint && <LiveTimeline complaint={selectedComplaint} />}
-              </div>
-            )}
+              )}
+            </div>
+          )}
+
+          {currentRole === 'Technician' && <TechnicianDashboard complaints={complaints} onUpdateStatus={handleUpdateStatus} />}
+          {currentRole === 'Supervisor' && <SupervisorDashboard complaints={complaints} onAssignTechnician={handleAssignTechnician} onVerifyComplaint={handleVerifyComplaint} />}
+          {currentRole === 'History' && <HistoryView complaints={complaints} />}
+          {currentRole === 'Analytics' && <AnalyticsDashboard complaints={complaints} />}
+        </main>
+
+        {/* ── BOTTOM STATUS BAR ── */}
+        <footer className="h-6 bg-[#0078D4] text-white flex items-center justify-between px-3 text-[10px] font-mono shrink-0 select-none">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <Database className="w-3 h-3" />
+              {isLiveDatabase ? 'DB: CONNECTED (SECURE)' : 'DB: OFFLINE (FALLBACK MODE)'}
+            </span>
+            <span>|</span>
+            <span>PROTOCOL: JWT/HTTPS</span>
           </div>
-        )}
+          <div className="flex items-center gap-4">
+            <span>CLIENT v2.0.1</span>
+            <span>SYSTEM READY</span>
+          </div>
+        </footer>
+      </div>
 
-        {currentRole === 'Technician' && (
-          <TechnicianDashboard complaints={complaints} onUpdateStatus={handleUpdateStatus} />
-        )}
-
-        {currentRole === 'Supervisor' && (
-          <SupervisorDashboard
-            complaints={complaints}
-            onAssignTechnician={handleAssignTechnician}
-            onVerifyComplaint={handleVerifyComplaint}
-          />
-        )}
-
-        {currentRole === 'History' && <HistoryView complaints={complaints} />}
-        {currentRole === 'Analytics' && <AnalyticsDashboard complaints={complaints} />}
-      </main>
-
-      {/* Mobile Bottom Navigation (Only for Supervisors/Admins who need to switch tabs) */}
+      {/* Mobile-only bottom nav for switching tabs if allowed */}
       {(currentUser.role === 'Supervisor' || currentUser.role === 'Admin') && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-lg px-1 py-1.5 z-50">
-          <div className="grid grid-cols-3 gap-0.5 text-center">
-            {[
-              { role: 'Supervisor', label: 'Supervisor', icon: Shield },
-              { role: 'History', label: 'History', icon: History },
-              { role: 'Analytics', label: 'Analytics', icon: BarChart3 }
-            ].map(({ role, label, icon: Icon }) => (
-              <button
-                key={role}
-                onClick={() => setCurrentRole(role)}
-                className={`py-1 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold transition-all ${
-                  currentRole === role ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Icon className="w-4 h-4 mb-0.5" />
-                {label}
-              </button>
-            ))}
-          </div>
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-panel)] border-t border-[var(--border-strong)] flex text-[10px] z-50">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setCurrentRole(item.id)}
+              className={`flex-1 py-2 flex flex-col items-center justify-center font-bold ${
+                currentRole === item.id ? 'bg-[var(--bg-selected)] text-[var(--status-info)] border-t-2 border-[var(--status-info)]' : 'text-[var(--text-secondary)]'
+              }`}
+            >
+              <item.icon className="w-4 h-4 mb-0.5" />
+              {item.id}
+            </button>
+          ))}
         </nav>
       )}
     </div>

@@ -1,122 +1,126 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { BarChart3, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart3 } from 'lucide-react';
 
 export default function AnalyticsDashboard({ complaints }) {
-  // Machine failure counts
-  const machineBreakdownData = [
-    { name: 'HP01 (Press 01)', breakdowns: 4, downtime: 140 },
-    { name: 'HP02 (Press 02)', breakdowns: 7, downtime: 290 },
-    { name: 'HP03 (Press 03)', breakdowns: 2, downtime: 65 },
-    { name: 'CY01 (Conveyor)', breakdowns: 3, downtime: 45 },
-    { name: 'BF01 (Bowl Feeder)', breakdowns: 5, downtime: 110 },
-    { name: 'HPU01 (Hydraulics)', breakdowns: 3, downtime: 95 }
-  ];
+  const machineFaults = complaints.reduce((acc, c) => {
+    acc[c.machineName] = (acc[c.machineName] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const barData = Object.keys(machineFaults).map(key => ({
+    name: key,
+    faults: machineFaults[key]
+  }));
 
-  // Category distribution
-  const categoryDistributionData = [
-    { name: 'Mechanical', value: 45, color: '#f59e0b' },
-    { name: 'Electrical', value: 25, color: '#3b82f6' },
-    { name: 'Automation/PLC', value: 15, color: '#10b981' },
-    { name: 'Sensors', value: 10, color: '#a855f7' },
-    { name: 'Vision / Quality', value: 5, color: '#ec4899' }
-  ];
+  const priorityData = complaints.reduce((acc, c) => {
+    acc[c.priority] = (acc[c.priority] || 0) + 1;
+    return acc;
+  }, {});
 
-  // Downtime trend over weeks
-  const downtimeTrendData = [
-    { week: 'Week 1', hours: 18.5 },
-    { week: 'Week 2', hours: 14.2 },
-    { week: 'Week 3', hours: 22.0 },
-    { week: 'Week 4', hours: 9.4 }
-  ];
+  const pieData = Object.keys(priorityData).map(key => ({
+    name: key,
+    value: priorityData[key]
+  }));
+
+  const COLORS = {
+    'Critical': '#E81123',
+    'High': '#D83B01',
+    'Medium': 'var(--status-info)',
+    'Low': '#107C10'
+  };
+
+  const completedComplaints = complaints.filter(c => c.status === 'Completed' || c.status === 'Closed');
+  const avgResolutionTime = completedComplaints.length > 0 
+    ? Math.round(completedComplaints.reduce((acc, c) => {
+        if(c.completedTime && c.timestamp) {
+          return acc + (new Date(c.completedTime) - new Date(c.timestamp)) / 60000;
+        }
+        return acc;
+      }, 0) / completedComplaints.length)
+    : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-purple-400" />
-            Back Cover Department Maintenance Analytics
-          </h2>
-          <p className="text-xs text-slate-400">Titan Industries Plant Performance & MTTR / MTBF Insights</p>
-        </div>
-        <span className="px-3 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/30 text-xs font-bold rounded-full">
-          Industrial KPIs
-        </span>
+    <div className="flex flex-col h-full bg-[var(--bg-app)] max-w-7xl mx-auto w-full">
+      <div className="p-3 bg-[var(--bg-panel)] border-b border-[var(--border-strong)]">
+        <h1 className="text-sm font-bold uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-[var(--status-info)]" />
+          Plant Performance Analytics
+        </h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Machine Breakdown Bar Chart */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-          <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-            Machine-Wise Failure Frequency
-          </h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={machineBreakdownData}>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-                <Bar dataKey="breakdowns" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      <div className="flex-1 overflow-auto p-4 flex flex-col gap-4">
+        {/* Top KPI row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] p-4">
+            <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Total Reported Faults</div>
+            <div className="text-2xl font-bold font-mono text-[var(--text-primary)]">{complaints.length}</div>
+          </div>
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] p-4">
+            <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Mean Time To Repair (MTTR)</div>
+            <div className="text-2xl font-bold font-mono text-[var(--status-info)]">{avgResolutionTime} mins</div>
+          </div>
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] p-4">
+            <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Completion Rate</div>
+            <div className="text-2xl font-bold font-mono text-[#107C10]">
+              {complaints.length > 0 ? Math.round((completedComplaints.length / complaints.length) * 100) : 0}%
+            </div>
           </div>
         </div>
 
-        {/* Fault Category Distribution Pie Chart */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-          <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-emerald-400" />
-            Fault Category Distribution (%)
-          </h3>
-          <div className="h-64 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[400px]">
+          {/* Bar Chart */}
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] flex flex-col">
+            <div className="px-4 py-2 border-b border-[var(--border-strong)] bg-[var(--bg-panel)] text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+              Faults per Machine
+            </div>
+            <div className="flex-1 p-4 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-strong)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--text-secondary)" fontSize={10} tickMargin={10} />
+                  <YAxis stroke="var(--text-secondary)" fontSize={10} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-strong)', borderRadius: '2px', fontSize: '12px' }}
+                    itemStyle={{ color: 'var(--text-primary)' }}
+                  />
+                  <Bar dataKey="faults" fill="var(--status-info)" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-3 mt-2 text-[11px]">
-            {categoryDistributionData.map((item) => (
-              <span key={item.name} className="flex items-center gap-1 text-slate-300">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
-                {item.name} ({item.value}%)
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* Weekly Downtime Trend Line Chart */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-        <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-purple-400" />
-          Weekly Line Downtime Trend (Hours)
-        </h3>
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={downtimeTrendData}>
-              <XAxis dataKey="week" stroke="#64748b" fontSize={11} />
-              <YAxis stroke="#64748b" fontSize={11} />
-              <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-              <Line type="monotone" dataKey="hours" stroke="#a855f7" strokeWidth={3} dot={{ fill: '#a855f7', r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
+          {/* Pie Chart */}
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] flex flex-col">
+            <div className="px-4 py-2 border-b border-[var(--border-strong)] bg-[var(--bg-panel)] text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+              Fault Distribution by Priority
+            </div>
+            <div className="flex-1 p-4 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[entry.name] || 'var(--text-muted)'} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-strong)', borderRadius: '2px', fontSize: '12px' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--text-secondary)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   );
