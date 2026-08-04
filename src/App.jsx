@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { INITIAL_COMPLAINTS, MACHINES } from './mockData';
+import { INITIAL_COMPLAINTS } from './mockData';
 import LoginModal from './components/LoginModal';
 import InstallPromptBar from './components/InstallPromptBar';
 import ComplaintForm from './components/ComplaintForm';
@@ -8,112 +8,135 @@ import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import HistoryView from './components/HistoryView';
-import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, Wifi, History, Smartphone, HelpCircle } from 'lucide-react';
-import { fetchComplaints, createComplaintInDb, updateComplaintInDb, subscribeToRealtimeComplaints } from './services/dbService';
+import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, History } from 'lucide-react';
+import { useAuth } from './context/AuthContext.jsx';
+import { fetchComplaints, createComplaint, assignTechnician, acceptJob, startRepair, completeRepair, verifyAndClose } from './api/complaint.api.js';
+import { subscribeToRealtimeComplaints } from './services/supabaseClient.js';
 import { requestNotificationPermission, sendAlertNotification } from './services/notificationService';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('titan_sdmms_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const { currentUser, logout } = useAuth();
+
   const [currentRole, setCurrentRole] = useState(() => {
-    try {
-      const saved = localStorage.getItem('titan_sdmms_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u.role === 'Operator') return 'Operator';
-        if (u.role === 'Technician') return 'Technician';
-        if (u.role === 'Supervisor' || u.role === 'Admin') return 'Supervisor';
-      }
-    } catch (e) {}
+    if (!currentUser) return 'Operator';
+    if (currentUser.role === 'Technician') return 'Technician';
+    if (currentUser.role === 'Supervisor' || currentUser.role === 'Admin') return 'Supervisor';
     return 'Operator';
   });
+
   const [complaints, setComplaints] = useState(INITIAL_COMPLAINTS);
   const [isLiveDatabase, setIsLiveDatabase] = useState(false);
   const [activeTab, setActiveTab] = useState('raise');
   const [selectedComplaintId, setSelectedComplaintId] = useState(complaints[0]?.id || '');
   const [recentNotification, setRecentNotification] = useState(null);
 
-  // Request browser notification permissions on mount
+  // When user logs in, set correct default role
   useEffect(() => {
-    requestNotificationPermission();
-  }, []);
+    if (currentUser) {
+      if (currentUser.role === 'Technician') setCurrentRole('Technician');
+      else if (currentUser.role === 'Supervisor' || currentUser.role === 'Admin') setCurrentRole('Supervisor');
+      else setCurrentRole('Operator');
+      requestNotificationPermission();
+    }
+  }, [currentUser]);
 
-  // Load complaints from Supabase on mount (or fallback to local data)
+  // Load complaints via Express API (authenticated)
   useEffect(() => {
+    if (!currentUser) return;
+
     async function loadData() {
-      const res = await fetchComplaints();
-      if (res.data && res.data.length > 0) {
-        setComplaints(res.data);
-        if (res.data[0]?.id) setSelectedComplaintId(res.data[0].id);
+      try {
+        const result = await fetchComplaints();
+        if (result?.data?.complaints?.length > 0) {
+          setComplaints(result.data.complaints);
+          setSelectedComplaintId(result.data.complaints[0]?.id || '');
+          setIsLiveDatabase(result.data.isLive !== false);
+        }
+      } catch (err) {
+        // If API call fails (backend not running), use local data
+        console.warn('[APP] Backend not reachable, using local data:', err.message);
+        setIsLiveDatabase(false);
       }
-      setIsLiveDatabase(res.isLive);
     }
     loadData();
 
-    // Subscribe to realtime database changes if Supabase is active
+    // Keep real-time Supabase subscription for instant UI updates
     const unsubscribe = subscribeToRealtimeComplaints((payload) => {
       loadData();
-      if (payload && payload.eventType === 'INSERT') {
-        const newRecord = payload.new;
+      if (payload?.eventType === 'INSERT') {
+        const r = payload.new;
         sendAlertNotification({
-          title: `🚨 CRITICAL BREAKDOWN: ${newRecord.machine_name}`,
-          message: `${newRecord.fault_name} reported by ${newRecord.operator_name}`,
-          priority: newRecord.priority
+          title: `🚨 BREAKDOWN: ${r.machine_name}`,
+          message: `${r.fault_name} reported by ${r.operator_name}`,
+          priority: r.priority
         });
-        setRecentNotification(`Alert: ${newRecord.machine_name} - ${newRecord.fault_name}`);
+        setRecentNotification(`Alert: ${r.machine_name} - ${r.fault_name}`);
         setTimeout(() => setRecentNotification(null), 6000);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   const handleLoginSuccess = (user) => {
-    setCurrentUser(user);
-    if (user.role === 'Operator') setCurrentRole('Operator');
-    else if (user.role === 'Technician') setCurrentRole('Technician');
+    if (user.role === 'Technician') setCurrentRole('Technician');
     else if (user.role === 'Supervisor' || user.role === 'Admin') setCurrentRole('Supervisor');
-    requestNotificationPermission();
+    else setCurrentRole('Operator');
   };
 
-  const handleLogout = () => {
-    try {
-      localStorage.removeItem('titan_sdmms_user');
-    } catch (e) {}
-    setCurrentUser(null);
+  const handleLogout = async () => {
+    await logout();
   };
 
   const handleAddComplaint = async (newCmp) => {
-    setComplaints([newCmp, ...complaints]);
+    setComplaints(prev => [newCmp, ...prev]);
     setSelectedComplaintId(newCmp.id);
     setActiveTab('active');
 
-    // Trigger instant alert sound chime and push notification to supervisors & technicians
     sendAlertNotification({
       title: `🚨 BREAKDOWN ALERT: ${newCmp.machineName}`,
-      message: `${newCmp.categoryName} -> ${newCmp.faultName} (Priority: ${newCmp.priority})`,
+      message: `${newCmp.faultName} (Priority: ${newCmp.priority})`,
       priority: newCmp.priority
     });
-    setRecentNotification(`🚨 Breakdown Reported: ${newCmp.machineName} - ${newCmp.faultName}`);
+    setRecentNotification(`🚨 Breakdown: ${newCmp.machineName} - ${newCmp.faultName}`);
     setTimeout(() => setRecentNotification(null), 6000);
 
-    await createComplaintInDb(newCmp);
+    try {
+      await createComplaint({
+        machineId: newCmp.machineId,
+        machineName: newCmp.machineName,
+        categoryId: newCmp.categoryId,
+        categoryName: newCmp.categoryName,
+        faultName: newCmp.faultName,
+        priority: newCmp.priority,
+        shift: newCmp.shift,
+        description: newCmp.description
+      });
+    } catch (err) {
+      console.warn('[APP] Complaint save failed:', err.message);
+    }
   };
-
 
   const handleUpdateStatus = async (complaintId, updatedFields) => {
-    setComplaints(complaints.map(c => 
-      c.id === complaintId ? { ...c, ...updatedFields } : c
-    ));
-    await updateComplaintInDb(complaintId, updatedFields);
-  };
+    setComplaints(prev => prev.map(c => c.id === complaintId ? { ...c, ...updatedFields } : c));
 
+    try {
+      const { status } = updatedFields;
+      if (status === 'Assigned') {
+        await assignTechnician(complaintId, updatedFields.assignedTechnician, updatedFields.assignedTechnician);
+      } else if (status === 'Accepted') {
+        await acceptJob(complaintId);
+      } else if (status === 'Repair Started') {
+        await startRepair(complaintId);
+      } else if (status === 'Completed') {
+        await completeRepair(complaintId, updatedFields.remarks, updatedFields.partsChanged);
+      } else if (status === 'Closed') {
+        await verifyAndClose(complaintId);
+      }
+    } catch (err) {
+      console.warn('[APP] Status update via API failed, saved locally:', err.message);
+    }
+  };
 
   const handleAssignTechnician = (complaintId, techName) => {
     handleUpdateStatus(complaintId, {
@@ -138,10 +161,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-20 md:pb-6">
-      {/* Top App Download Banner */}
       <InstallPromptBar />
 
-      {/* Real-time Emergency Alert Toast Banner */}
       {recentNotification && (
         <div className="bg-gradient-to-r from-rose-600 to-amber-600 text-white font-bold text-xs py-2 px-4 text-center shadow-lg animate-pulse flex items-center justify-center gap-2 z-50">
           <Activity className="w-4 h-4 animate-spin" />
@@ -149,11 +170,8 @@ export default function App() {
         </div>
       )}
 
-
-      {/* Desktop / Tablet Professional Top Navigation Bar */}
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-          {/* Brand Identifier */}
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
               <Wrench className="w-4 h-4" />
@@ -165,23 +183,30 @@ export default function App() {
                   BACK COVER DEPT
                 </span>
                 <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border flex items-center gap-1 ${
-                  isLiveDatabase 
-                    ? 'bg-emerald-950/80 border-emerald-700 text-emerald-400' 
+                  isLiveDatabase
+                    ? 'bg-emerald-950/80 border-emerald-700 text-emerald-400'
                     : 'bg-amber-950/80 border-amber-700 text-amber-400'
                 }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${isLiveDatabase ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                  {isLiveDatabase ? 'LIVE SUPABASE' : 'DEMO MODE'}
+                  {isLiveDatabase ? 'LIVE DB' : 'DEMO MODE'}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">Digital Maintenance Management System</p>
+              <p className="text-[10px] text-slate-400">Smart Digital Maintenance Management System v2.0</p>
             </div>
           </div>
 
-          {/* Desktop Role View Switcher */}
           <div className="hidden md:flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-            {[
-              { role: 'Operator', icon: User },
-              { role: 'Technician', icon: Wrench },
+            {currentUser.role === 'Operator' && (
+              <span className="px-3 py-1.5 rounded-md font-bold text-white bg-blue-600 shadow-sm flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5" /> Operator Workspace
+              </span>
+            )}
+            {currentUser.role === 'Technician' && (
+              <span className="px-3 py-1.5 rounded-md font-bold text-white bg-blue-600 shadow-sm flex items-center gap-1.5">
+                <Wrench className="w-3.5 h-3.5" /> Technician Dashboard
+              </span>
+            )}
+            {(currentUser.role === 'Supervisor' || currentUser.role === 'Admin') && [
               { role: 'Supervisor', icon: Shield },
               { role: 'History', icon: History },
               { role: 'Analytics', icon: BarChart3 }
@@ -201,7 +226,6 @@ export default function App() {
             ))}
           </div>
 
-          {/* User Profile & Logout */}
           <div className="flex items-center gap-2.5">
             <div className="text-right text-xs">
               <div className="font-bold text-slate-200">{currentUser.name}</div>
@@ -218,27 +242,20 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Workspace Layout (Supports Dual-Pane Widescreen on Desktop) */}
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 space-y-5">
-        {/* Role: Operator View */}
         {currentRole === 'Operator' && (
           <div className="space-y-4">
-            {/* Operator Sub-tab selector */}
             <div className="flex items-center justify-between bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-xs">
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setActiveTab('raise')}
-                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${
-                    activeTab === 'raise' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${activeTab === 'raise' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
                 >
                   + Raise Complaint
                 </button>
                 <button
                   onClick={() => setActiveTab('active')}
-                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${
-                    activeTab === 'active' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all ${activeTab === 'active' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
                 >
                   Track Active ({complaints.filter(c => c.status !== 'Closed').length})
                 </button>
@@ -246,7 +263,6 @@ export default function App() {
               <span className="text-[11px] text-slate-400 hidden sm:inline">Active Line: <strong>20 Machines</strong></span>
             </div>
 
-            {/* Desktop Dual-Pane Grid layout for Raise vs Track */}
             {activeTab === 'raise' ? (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-7">
@@ -287,15 +303,10 @@ export default function App() {
           </div>
         )}
 
-        {/* Role: Technician View */}
         {currentRole === 'Technician' && (
-          <TechnicianDashboard
-            complaints={complaints}
-            onUpdateStatus={handleUpdateStatus}
-          />
+          <TechnicianDashboard complaints={complaints} onUpdateStatus={handleUpdateStatus} />
         )}
 
-        {/* Role: Supervisor View */}
         {currentRole === 'Supervisor' && (
           <SupervisorDashboard
             complaints={complaints}
@@ -304,44 +315,33 @@ export default function App() {
           />
         )}
 
-        {/* Role: History View */}
-        {currentRole === 'History' && (
-          <HistoryView complaints={complaints} />
-        )}
-
-        {/* Role: Analytics View */}
-        {currentRole === 'Analytics' && (
-          <AnalyticsDashboard complaints={complaints} />
-        )}
+        {currentRole === 'History' && <HistoryView complaints={complaints} />}
+        {currentRole === 'Analytics' && <AnalyticsDashboard complaints={complaints} />}
       </main>
 
-      {/* MOBILE FIXED BOTTOM NAVIGATION DOCK (Thumb-Friendly for Smartphones) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-lg px-1 py-1.5 z-50">
-        <div className="grid grid-cols-5 gap-0.5 text-center">
-          {[
-            { role: 'Operator', label: 'Report', icon: PlusCircle },
-            { role: 'Technician', label: 'Tech', icon: Wrench },
-            { role: 'Supervisor', label: 'Supervisor', icon: Shield },
-            { role: 'History', label: 'History', icon: History },
-            { role: 'Analytics', label: 'Analytics', icon: BarChart3 }
-          ].map(({ role, label, icon: Icon }) => {
-            const isActive = currentRole === role;
-            return (
+      {/* Mobile Bottom Navigation (Only for Supervisors/Admins who need to switch tabs) */}
+      {(currentUser.role === 'Supervisor' || currentUser.role === 'Admin') && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-lg px-1 py-1.5 z-50">
+          <div className="grid grid-cols-3 gap-0.5 text-center">
+            {[
+              { role: 'Supervisor', label: 'Supervisor', icon: Shield },
+              { role: 'History', label: 'History', icon: History },
+              { role: 'Analytics', label: 'Analytics', icon: BarChart3 }
+            ].map(({ role, label, icon: Icon }) => (
               <button
                 key={role}
                 onClick={() => setCurrentRole(role)}
                 className={`py-1 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold transition-all ${
-                  isActive ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400 hover:text-slate-200'
+                  currentRole === role ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Icon className="w-4 h-4 mb-0.5" />
                 {label}
               </button>
-            );
-          })}
-        </div>
-      </nav>
-
+            ))}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

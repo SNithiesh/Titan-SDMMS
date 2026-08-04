@@ -115,7 +115,7 @@ export default function ComplaintForm({ onSubmitSuccess, preSelectedMachine }) {
 
             {/* Clean Swipeable Category Chips */}
             <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
-              {['All', 'Friction Press', 'Hydraulic Press', 'Crank Press'].map((type) => (
+              {['All', 'Friction Press', 'Hydraulic Press', 'Crank Press', 'Testing'].map((type) => (
                 <button
                   type="button"
                   key={type}
@@ -126,7 +126,7 @@ export default function ComplaintForm({ onSubmitSuccess, preSelectedMachine }) {
                       : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-750'
                   }`}
                 >
-                  {type} {type === 'Friction Press' ? '(15)' : type === 'Hydraulic Press' ? '(3)' : type === 'Crank Press' ? '(2)' : ''}
+                  {type} {type === 'Friction Press' ? '(15)' : type === 'Hydraulic Press' ? '(3)' : type === 'Crank Press' ? '(2)' : type === 'Testing' ? '(1)' : ''}
                 </button>
               ))}
             </div>

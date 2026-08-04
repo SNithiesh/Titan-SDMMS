@@ -13,3 +13,20 @@ export const isSupabaseConfigured = () => {
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/**
+ * Real-time subscription for live complaint updates across all devices
+ * Frontend subscribes directly to Supabase (read-only anon key — safe)
+ * All writes go through the secure Express backend
+ */
+export function subscribeToRealtimeComplaints(onChangeCallback) {
+  if (!isSupabaseConfigured()) return () => {};
+
+  const subscription = supabase
+    .channel('public:complaints')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, (payload) => {
+      onChangeCallback(payload);
+    })
+    .subscribe();
+
+  return () => { supabase.removeChannel(subscription); };
+}
