@@ -14,6 +14,37 @@ export default function HistoryView({ complaints }) {
     c.assignedTechnician?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const exportToCSV = () => {
+    if (filteredHistory.length === 0) return;
+    
+    const headers = ['Req ID', 'Machine Name', 'Category', 'Fault Name', 'Priority', 'Remarks', 'Parts Changed', 'Assigned Technician', 'Reported Time', 'Completed Time'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...filteredHistory.map(c => [
+        c.id,
+        `"${(c.machineName || '').replace(/"/g, '""')}"`,
+        c.categoryId || '',
+        `"${(c.faultName || '').replace(/"/g, '""')}"`,
+        c.priority || '',
+        `"${(c.remarks || '').replace(/"/g, '""')}"`,
+        `"${(c.partsChanged || '').replace(/"/g, '""')}"`,
+        `"${(c.assignedTechnician || '').replace(/"/g, '""')}"`,
+        `"${c.timestamp ? new Date(c.timestamp).toLocaleString() : ''}"`,
+        `"${c.completedTime ? new Date(c.completedTime).toLocaleString() : ''}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `SDMMS_History_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-app)] max-w-7xl mx-auto w-full">
       <div className="p-3 bg-[var(--bg-panel)] border-b border-[var(--border-strong)] flex items-center justify-between">
@@ -32,7 +63,11 @@ export default function HistoryView({ complaints }) {
               className="pl-7 pr-2 py-1.5 w-64 bg-[var(--bg-app)] border border-[var(--border-strong)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--status-info)]"
             />
           </div>
-          <button className="px-3 py-1.5 bg-[var(--border-subtle)] hover:bg-[var(--border-strong)] text-[var(--text-secondary)] hover:text-white text-xs font-bold border border-[var(--border-strong)] flex items-center gap-2 transition-none">
+          <button 
+            onClick={exportToCSV}
+            disabled={filteredHistory.length === 0}
+            className="px-3 py-1.5 bg-[var(--border-subtle)] hover:bg-[var(--border-strong)] text-[var(--text-secondary)] hover:text-white text-xs font-bold border border-[var(--border-strong)] flex items-center gap-2 transition-none disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-3.5 h-3.5" />
             EXPORT CSV
           </button>
