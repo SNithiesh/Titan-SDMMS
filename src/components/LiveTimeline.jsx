@@ -6,9 +6,9 @@ export default function LiveTimeline({ complaint }) {
 
   const events = [];
   
-  if (complaint.timestamp) {
+  if (complaint.createdTime) {
     events.push({
-      time: complaint.timestamp,
+      time: complaint.createdTime,
       title: 'FAULT REPORTED',
       desc: `Reported by Operator: ${complaint.operatorName || 'Unknown'}`,
       icon: ShieldAlert,
@@ -39,9 +39,9 @@ export default function LiveTimeline({ complaint }) {
     });
   }
 
-  if (complaint.startTime) {
+  if (complaint.repairStartedTime) {
     events.push({
-      time: complaint.startTime,
+      time: complaint.repairStartedTime,
       title: 'REPAIR IN PROGRESS',
       desc: 'Technician started work on the asset.',
       icon: Wrench,

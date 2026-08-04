@@ -7,13 +7,13 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
 
   // KPI Calculations
   const activeFaults = complaints.filter(c => c.status !== 'Closed').length;
-  const unassignedFaults = complaints.filter(c => c.status === 'Open').length;
+  const unassignedFaults = complaints.filter(c => c.status === 'New').length;
   const criticalFaults = complaints.filter(c => c.status !== 'Closed' && c.priority === 'Critical').length;
   const completedPendingVerification = complaints.filter(c => c.status === 'Completed').length;
 
   const filteredComplaints = complaints.filter(c => {
     if (filter === 'All') return c.status !== 'Closed';
-    if (filter === 'Unassigned') return c.status === 'Open';
+    if (filter === 'Unassigned') return c.status === 'New';
     if (filter === 'Pending Review') return c.status === 'Completed';
     return true;
   });
@@ -106,16 +106,16 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
                     </td>
                     <td className="py-2 px-3 font-bold">{getStatusBadge(c.status)}</td>
                     <td className="py-2 px-3">
-                      {c.status === 'Open' ? (
+                      {['New', 'Assigned', 'Accepted', 'Repair Started'].includes(c.status) ? (
                         <div className="flex gap-2">
                           <select
                             onChange={(e) => onAssignTechnician(c.id, e.target.value)}
-                            defaultValue=""
-                            className="p-1 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[10px] outline-none"
+                            className="bg-[var(--bg-app)] border border-[var(--border-strong)] text-[10px] p-1 text-[var(--text-primary)]"
+                            value={c.assignedTechnician && c.assignedTechnician !== 'Unassigned' ? c.assignedTechnician : ""}
                           >
                             <option value="" disabled>Assign Tech...</option>
                             {TECHNICIANS.map(t => (
-                              <option key={t.id} value={t.name}>{t.name} ({t.discipline})</option>
+                              <option key={t.id} value={t.name}>{t.name} - {t.role}</option>
                             ))}
                           </select>
                         </div>

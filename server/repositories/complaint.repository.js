@@ -63,7 +63,7 @@ export async function getComplaintsByOperator(employeeId) {
   const { data, error } = await supabase
     .from('complaints')
     .select('*')
-    .eq('operator_employee_id', employeeId)
+    .eq('employee_id', employeeId)
     .order('created_time', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -81,7 +81,7 @@ export async function getComplaintsByTechnician(employeeId) {
   const { data, error } = await supabase
     .from('complaints')
     .select('*')
-    .eq('assigned_technician_id', employeeId)
+    .eq('assigned_technician', employeeId)
     .order('created_time', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -104,7 +104,7 @@ export async function createComplaint(complaint) {
       machine_id: complaint.machineId,
       machine_name: complaint.machineName,
       operator_name: complaint.operatorName,
-      operator_employee_id: complaint.employeeId,
+      employee_id: complaint.employeeId,
       department: complaint.department || 'Back Cover Dept',
       shift: complaint.shift || 'Shift A',
       category_id: complaint.categoryId || 'mechanical',
@@ -130,7 +130,7 @@ export async function updateComplaint(complaintId, updates) {
 
   const dbUpdates = {};
   if (updates.status !== undefined) dbUpdates.status = updates.status;
-  if (updates.assignedTechnician !== undefined) dbUpdates.assigned_technician_id = updates.assignedTechnician;
+  if (updates.assignedTechnician !== undefined) dbUpdates.assigned_technician = updates.assignedTechnician;
   if (updates.assignedTime !== undefined) dbUpdates.assigned_time = updates.assignedTime;
   if (updates.acceptedTime !== undefined) dbUpdates.accepted_time = updates.acceptedTime;
   if (updates.repairStartedTime !== undefined) dbUpdates.repair_started_time = updates.repairStartedTime;

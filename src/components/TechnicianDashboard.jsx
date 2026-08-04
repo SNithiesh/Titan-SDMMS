@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { Wrench, CheckCircle2, PlayCircle, Clock, AlertTriangle, Info } from 'lucide-react';
+import React from 'react';
+import { Wrench, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
   const { currentUser } = useAuth();
-  const [selectedTask, setSelectedTask] = useState(null);
 
   // Filter complaints meant for this technician
   const myTasks = complaints.filter(
@@ -22,11 +21,11 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'Assigned': return <span className="px-1.5 py-0.5 bg-[var(--status-info)]/20 text-[var(--status-info)] border border-[var(--status-info)]/50">ASSIGNED</span>;
-      case 'Accepted': return <span className="px-1.5 py-0.5 bg-[#D83B01]/20 text-[#D83B01] border border-[#D83B01]/50">ACCEPTED</span>;
-      case 'Repair Started': return <span className="px-1.5 py-0.5 bg-[#107C10]/20 text-[#107C10] border border-[#107C10]/50 animate-pulse">IN PROGRESS</span>;
-      case 'Completed': return <span className="px-1.5 py-0.5 bg-[var(--text-muted)]/20 text-[var(--text-muted)] border border-[var(--text-muted)]/50">COMPLETED</span>;
-      default: return <span className="px-1.5 py-0.5 bg-[var(--text-secondary)]/20 text-[var(--text-secondary)] border border-[var(--text-secondary)]/50">OPEN</span>;
+      case 'Assigned': return <span className="px-2 py-1 bg-[var(--status-info)]/20 text-[var(--status-info)] border border-[var(--status-info)]/50">ASSIGNED</span>;
+      case 'Accepted': return <span className="px-2 py-1 bg-[#D83B01]/20 text-[#D83B01] border border-[#D83B01]/50">ACCEPTED</span>;
+      case 'Repair Started': return <span className="px-2 py-1 bg-[#107C10]/20 text-[#107C10] border border-[#107C10]/50 animate-pulse">IN PROGRESS</span>;
+      case 'Completed': return <span className="px-2 py-1 bg-[var(--text-muted)]/20 text-[var(--text-muted)] border border-[var(--text-muted)]/50">COMPLETED</span>;
+      default: return <span className="px-2 py-1 bg-[var(--text-secondary)]/20 text-[var(--text-secondary)] border border-[var(--text-secondary)]/50">OPEN</span>;
     }
   };
 
@@ -34,34 +33,52 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
     if (task.status === 'Assigned') {
       return (
         <button
-          onClick={() => onUpdateStatus(task.id, { status: 'Accepted', acceptedTime: new Date().toISOString() })}
-          className="w-full py-1.5 bg-[var(--status-info)] hover:bg-[#004A99] text-white text-xs font-bold border border-[var(--status-info)]"
+          onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, { status: 'Accepted', acceptedTime: new Date().toISOString() }); }}
+          className="w-full py-1.5 px-3 bg-[var(--status-info)] hover:bg-[#004A99] text-white text-[10px] font-bold border border-[var(--status-info)] uppercase transition-colors"
         >
-          ACCEPT JOB
+          Accept Job
         </button>
       );
     }
     if (task.status === 'Accepted') {
       return (
         <button
-          onClick={() => onUpdateStatus(task.id, { status: 'Repair Started', startTime: new Date().toISOString() })}
-          className="w-full py-1.5 bg-[#107C10] hover:bg-[#0B5A0B] text-white text-xs font-bold border border-[#107C10]"
+          onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, { status: 'Repair Started', repairStartedTime: new Date().toISOString() }); }}
+          className="w-full py-1.5 px-3 bg-[#107C10] hover:bg-[#0B5A0B] text-white text-[10px] font-bold border border-[#107C10] uppercase transition-colors"
         >
-          START REPAIR
+          Start Repair
         </button>
       );
     }
     if (task.status === 'Repair Started') {
       return (
         <button
-          onClick={() => onUpdateStatus(task.id, { status: 'Completed', completedTime: new Date().toISOString() })}
-          className="w-full py-1.5 bg-[#D83B01] hover:bg-[#B33101] text-white text-xs font-bold border border-[#D83B01]"
+          onClick={(e) => {
+            e.stopPropagation();
+            const remarks = window.prompt("Enter repair remarks/solution (Required):");
+            if (!remarks) return; // Cancel if empty or closed
+            const partsChanged = window.prompt("Enter parts changed (or 'None'):") || 'None';
+            onUpdateStatus(task.id, { 
+              status: 'Completed', 
+              completedTime: new Date().toISOString(),
+              remarks,
+              partsChanged
+            });
+          }}
+          className="w-full py-1.5 px-3 bg-[#D83B01] hover:bg-[#B33101] text-white text-[10px] font-bold border border-[#D83B01] uppercase transition-colors shadow-sm"
         >
-          MARK COMPLETED
+          Mark Completed
         </button>
       );
     }
-    return null;
+    if (task.status === 'Completed') {
+        return (
+            <div className="w-full text-center py-1.5 px-3 text-[10px] font-bold text-[var(--text-muted)] border border-[var(--text-muted)]/20 bg-[var(--bg-app)]">
+                AWAITING VERIFICATION
+            </div>
+        );
+    }
+    return <span className="text-[10px] text-[var(--text-muted)] uppercase">No Action</span>;
   };
 
   return (
@@ -76,90 +93,65 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-        {/* Left: Master Data Grid */}
-        <div className="w-full md:w-2/3 border-r border-[var(--border-strong)] overflow-auto bg-[var(--bg-panel)]">
-          <table className="w-full text-left border-collapse">
+      <div className="flex-1 overflow-auto bg-[var(--bg-panel)] p-2">
+        <div className="border border-[var(--border-strong)] h-full overflow-hidden flex flex-col">
+          <table className="w-full text-left border-collapse table-fixed">
             <thead className="sticky top-0 bg-[var(--bg-panel)] z-10 shadow-sm">
               <tr>
-                <th className="py-2 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24">ID</th>
-                <th className="py-2 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)]">Machine</th>
-                <th className="py-2 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)]">Fault</th>
-                <th className="py-2 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-20">Priority</th>
-                <th className="py-2 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-28">Status</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24">ID</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-48">Machine</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)]">Reported Fault & Details</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24">Priority</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-28 text-center">Status</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24 text-center">Time Active</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-36 text-center">Quick Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-[var(--bg-app)]">
               {myTasks.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-xs text-[var(--text-muted)]">No active tasks assigned to you.</td>
+                  <td colSpan="7" className="p-12 text-center text-[var(--text-muted)] border-b border-[var(--border-strong)]">
+                    <div className="flex flex-col items-center justify-center">
+                      <Info className="w-8 h-8 mb-2 opacity-50 text-[var(--text-secondary)]" />
+                      <span className="text-xs font-bold uppercase tracking-wider">No Active Tasks Assigned</span>
+                    </div>
+                  </td>
                 </tr>
               ) : (
                 myTasks.map((task) => (
                   <tr
                     key={task.id}
-                    onClick={() => setSelectedTask(task)}
-                    className={`cursor-pointer border-b border-[var(--border-subtle)] transition-none ${
-                      selectedTask?.id === task.id ? 'bg-[var(--bg-selected)]' : 'hover:bg-[var(--bg-panel-hover)]'
-                    }`}
+                    className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-panel-hover)] transition-colors group"
                   >
-                    <td className="py-2 px-3 text-xs font-mono text-[var(--text-secondary)]">{task.id}</td>
-                    <td className="py-2 px-3 text-xs font-bold text-[var(--text-primary)]">{task.machineName}</td>
-                    <td className="py-2 px-3 text-xs text-[var(--text-secondary)] truncate max-w-[150px]">{task.faultName}</td>
-                    <td className={`py-2 px-3 text-xs font-bold ${getPriorityColor(task.priority)}`}>{task.priority}</td>
-                    <td className="py-2 px-3 text-[10px] font-bold">{getStatusBadge(task.status)}</td>
+                    <td className="py-3 px-3 text-xs font-mono text-[var(--text-secondary)]">{task.id}</td>
+                    <td className="py-3 px-3">
+                        <div className="text-xs font-bold text-[var(--text-primary)] truncate">{task.machineName}</div>
+                        <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">{task.machineId}</div>
+                    </td>
+                    <td className="py-3 px-3">
+                        <div className="text-xs font-bold text-[var(--text-primary)]">{task.faultName}</div>
+                        {task.description && (
+                            <div className="text-[10px] text-[var(--text-secondary)] truncate max-w-sm mt-0.5" title={task.description}>
+                                {task.description}
+                            </div>
+                        )}
+                        <div className="text-[9px] text-[var(--text-muted)] uppercase mt-1">Reported by {task.operatorName}</div>
+                    </td>
+                    <td className={`py-3 px-3 text-xs font-bold ${getPriorityColor(task.priority)}`}>{task.priority}</td>
+                    <td className="py-3 px-3 text-[10px] font-bold text-center align-middle">{getStatusBadge(task.status)}</td>
+                    <td className="py-3 px-3 text-center align-middle">
+                      <div className="text-xs font-mono font-bold text-[#D83B01]">
+                        {task.createdTime ? Math.round((new Date() - new Date(task.createdTime)) / 60000) : 0}m
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 align-middle">
+                        {renderActionButtons(task)}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* Right: Detail View & Action Panel */}
-        <div className="w-full md:w-1/3 bg-[var(--bg-panel)] overflow-auto flex flex-col">
-          <div className="p-2 border-b border-[var(--border-strong)] bg-[var(--bg-panel)] text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wide">
-            Task Execution Panel
-          </div>
-          
-          {selectedTask ? (
-            <div className="p-4 flex flex-col gap-4 h-full">
-              <div>
-                <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Asset Information</div>
-                <div className="text-sm font-bold text-[var(--text-primary)]">{selectedTask.machineName}</div>
-                <div className="text-xs text-[var(--text-muted)] font-mono">{selectedTask.categoryId} / {selectedTask.machineId}</div>
-              </div>
-
-              <div>
-                <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Reported Issue</div>
-                <div className="p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-xs text-[var(--text-primary)]">
-                  <strong>{selectedTask.faultName}</strong>
-                  <div className="mt-1 text-[var(--text-secondary)] text-[11px]">{selectedTask.description || 'No additional details provided.'}</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 bg-[var(--bg-app)] border border-[var(--border-strong)]">
-                  <div className="text-[10px] text-[var(--text-secondary)] uppercase">Reported By</div>
-                  <div className="text-xs font-bold mt-0.5">{selectedTask.operatorName}</div>
-                </div>
-                <div className="p-2 bg-[var(--bg-app)] border border-[var(--border-strong)]">
-                  <div className="text-[10px] text-[var(--text-secondary)] uppercase">Time Elapsed</div>
-                  <div className="text-xs font-mono font-bold text-[#D83B01] mt-0.5">
-                    {Math.round((new Date() - new Date(selectedTask.timestamp)) / 60000)} mins
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-4 border-t border-[var(--border-strong)]">
-                 {renderActionButtons(selectedTask)}
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[var(--text-muted)]">
-              <Info className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-xs">Select a task from the grid to view details and execute actions.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

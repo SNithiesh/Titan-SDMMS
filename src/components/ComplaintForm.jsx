@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FAULT_CATEGORIES, MACHINES } from '../mockData';
-import { ShieldAlert, CheckCircle2, Save, X } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Save, X, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ComplaintForm({ onSubmitSuccess }) {
@@ -16,9 +16,35 @@ export default function ComplaintForm({ onSubmitSuccess }) {
   });
   const [status, setStatus] = useState(null);
 
-  const availableMachines = MACHINES.filter(
-    (m) => !formData.categoryId || m.categoryId === formData.categoryId
-  );
+  const [machineSearch, setMachineSearch] = useState('');
+  const [faultSearch, setFaultSearch] = useState('');
+
+  // Allow selection of any machine regardless of fault category
+  const availableMachines = MACHINES;
+  
+  // Get available faults based on selected category
+  const selectedCategoryData = FAULT_CATEGORIES.find(c => c.id === formData.categoryId);
+  const availableFaults = selectedCategoryData ? selectedCategoryData.faults : [];
+
+  const handleMachineSearch = () => {
+    if (!machineSearch) return;
+    const match = availableMachines.find(m => m.name.toLowerCase().includes(machineSearch.toLowerCase()) || m.code.toLowerCase().includes(machineSearch.toLowerCase()));
+    if (match) {
+      setFormData({ ...formData, machineId: match.id });
+    } else {
+      alert("No machine found matching: " + machineSearch);
+    }
+  };
+
+  const handleFaultSearch = () => {
+    if (!faultSearch) return;
+    const match = availableFaults.find(f => f.name.toLowerCase().includes(faultSearch.toLowerCase()));
+    if (match) {
+      setFormData({ ...formData, faultName: match.name });
+    } else {
+      alert("No fault found matching: " + faultSearch);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -97,18 +123,40 @@ export default function ComplaintForm({ onSubmitSuccess }) {
             <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
               Machine / Asset <span className="text-[#E81123]">*</span>
             </label>
-            <select
-              required
-              disabled={!formData.categoryId}
-              value={formData.machineId}
-              onChange={(e) => setFormData({ ...formData, machineId: e.target.value })}
-              className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none disabled:opacity-50"
-            >
-              <option value="">-- Select Machine --</option>
-              {availableMachines.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-2">
+              <select
+                required
+                disabled={!formData.categoryId}
+                value={formData.machineId}
+                onChange={(e) => setFormData({ ...formData, machineId: e.target.value })}
+                className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none disabled:opacity-50"
+              >
+                <option value="">-- Standard Selection (All Machines) --</option>
+                {availableMachines.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
+                ))}
+              </select>
+              
+              <div className="flex items-center gap-1">
+                <input 
+                  type="text" 
+                  placeholder="Or search by name/code..."
+                  value={machineSearch}
+                  onChange={(e) => setMachineSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMachineSearch())}
+                  className="flex-1 p-1.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none disabled:opacity-50"
+                  disabled={!formData.categoryId}
+                />
+                <button 
+                  type="button"
+                  onClick={handleMachineSearch}
+                  disabled={!formData.categoryId || !machineSearch}
+                  className="px-3 py-1.5 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -118,14 +166,40 @@ export default function ComplaintForm({ onSubmitSuccess }) {
             <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
               Fault/Issue Summary <span className="text-[#E81123]">*</span>
             </label>
-            <input
-              type="text"
-              required
-              placeholder="Brief description of the problem..."
-              value={formData.faultName}
-              onChange={(e) => setFormData({ ...formData, faultName: e.target.value })}
-              className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
-            />
+            <div className="flex flex-col gap-2">
+              <select
+                required
+                disabled={!formData.categoryId}
+                value={formData.faultName}
+                onChange={(e) => setFormData({ ...formData, faultName: e.target.value })}
+                className="w-full p-2 bg-[var(--bg-panel)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none disabled:opacity-50"
+              >
+                <option value="">-- Standard Selection (All Faults) --</option>
+                {availableFaults.map((f) => (
+                  <option key={f.id} value={f.name}>{f.name}</option>
+                ))}
+              </select>
+              
+              <div className="flex items-center gap-1">
+                <input 
+                  type="text" 
+                  placeholder="Or search by fault name..."
+                  value={faultSearch}
+                  onChange={(e) => setFaultSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleFaultSearch())}
+                  className="flex-1 p-1.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none disabled:opacity-50"
+                  disabled={!formData.categoryId}
+                />
+                <button 
+                  type="button"
+                  onClick={handleFaultSearch}
+                  disabled={!formData.categoryId || !faultSearch}
+                  className="px-3 py-1.5 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

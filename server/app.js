@@ -19,6 +19,8 @@ app.use(helmet({
 // Allow requests from the Vite dev server and production frontend
 const allowedOrigins = [
   'http://localhost:5173',   // Vite dev server
+  'http://localhost:5174',   // Vite dev server fallback
+  'http://localhost:5175',   // Vite dev server fallback
   'http://localhost:5000',   // Production preview
   'http://localhost:4173',   // Vite preview
   process.env.FRONTEND_URL  // Production URL (set in .env)

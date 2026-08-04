@@ -8,12 +8,26 @@ import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import HistoryView from './components/HistoryView';
-import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, History, Settings, Database, Sun, Moon } from 'lucide-react';
+import { Wrench, Shield, User, BarChart3, LogOut, PlusCircle, Activity, History, Settings, Database, Sun, Moon, Clock } from 'lucide-react';
 import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import { fetchComplaints, createComplaint, assignTechnician, acceptJob, startRepair, completeRepair, verifyAndClose } from './api/complaint.api.js';
 import { subscribeToRealtimeComplaints } from './services/supabaseClient.js';
 import { requestNotificationPermission, sendAlertNotification } from './services/notificationService';
+
+function LiveClock() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="flex items-center gap-2 bg-[var(--bg-app)] border border-[var(--border-strong)] px-2 py-1 rounded-sm text-[var(--status-info)]">
+      <Clock className="w-3.5 h-3.5" />
+      <span className="text-[10px] font-mono font-bold">{time.toLocaleString()}</span>
+    </div>
+  );
+}
 
 export default function App() {
   const { currentUser, logout } = useAuth();
@@ -85,8 +99,10 @@ export default function App() {
   };
 
   const handleAddComplaint = async (newCmp) => {
-    setComplaints(prev => [newCmp, ...prev]);
-    setSelectedComplaintId(newCmp.id);
+    // Ensure correct DB field name for optimistic update
+    const complaintToSave = { ...newCmp, createdTime: newCmp.timestamp || new Date().toISOString() };
+    setComplaints(prev => [complaintToSave, ...prev]);
+    setSelectedComplaintId(complaintToSave.id);
     setActiveTab('active');
 
     sendAlertNotification({
@@ -123,6 +139,21 @@ export default function App() {
     } catch (err) {
       console.warn('[APP] Status update failed:', err.message);
     }
+  };
+
+  const handleAssignTechnician = (complaintId, technicianName) => {
+    handleUpdateStatus(complaintId, { 
+      status: 'Assigned', 
+      assignedTechnician: technicianName,
+      assignedTime: new Date().toISOString() 
+    });
+  };
+
+  const handleVerifyComplaint = (complaintId) => {
+    handleUpdateStatus(complaintId, { 
+      status: 'Closed',
+      verifiedTime: new Date().toISOString() 
+    });
   };
 
   const selectedComplaint = complaints.find(c => c.id === selectedComplaintId) || complaints[0];
@@ -217,6 +248,7 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-4">
+            <LiveClock />
             <button 
               onClick={toggleTheme}
               className="flex items-center justify-center p-1.5 rounded-sm bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--status-info)]"
