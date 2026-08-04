@@ -1,37 +1,63 @@
 import React, { useState } from 'react';
-import { Wrench, Info, X } from 'lucide-react';
+import { Wrench, Info, X, ChevronDown, ChevronUp, FileText, Clock, AlertTriangle, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
   const { currentUser } = useAuth();
   
-  // Modal State
+  // States
   const [modalTask, setModalTask] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [partsChanged, setPartsChanged] = useState('');
+  const [expandedRowId, setExpandedRowId] = useState(null);
 
-  // Filter complaints meant for this technician
+  // Filter active tasks for this technician
   const myTasks = complaints.filter(
     (c) => c.status !== 'Closed' && (c.assignedTechnician === currentUser?.name || c.status === 'Open')
   );
 
+  // Get history from REAL complaints data
+  const getMachineHistory = (machineId, currentTaskId) => {
+    return complaints
+      .filter(c => c.machineId === machineId && c.id !== currentTaskId && (c.status === 'Completed' || c.status === 'Closed'))
+      .sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0))
+      .slice(0, 3); // Get last 3
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'Critical': return 'text-[#E81123]';
+      case 'Critical': return 'text-[#E81123] drop-shadow-[0_0_8px_rgba(232,17,35,0.5)]';
       case 'High': return 'text-[#D83B01]';
       case 'Medium': return 'text-[var(--status-info)]';
       default: return 'text-[#107C10]';
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Assigned': return <span className="px-2 py-1 bg-[var(--status-info)]/20 text-[var(--status-info)] border border-[var(--status-info)]/50 whitespace-nowrap text-[9px]">ASSIGNED</span>;
-      case 'Accepted': return <span className="px-2 py-1 bg-[#D83B01]/20 text-[#D83B01] border border-[#D83B01]/50 whitespace-nowrap text-[9px]">ACCEPTED</span>;
-      case 'Repair Started': return <span className="px-2 py-1 bg-[#107C10]/20 text-[#107C10] border border-[#107C10]/50 animate-pulse whitespace-nowrap text-[9px]">IN PROGRESS</span>;
-      case 'Completed': return <span className="px-2 py-1 bg-[var(--text-muted)]/20 text-[var(--text-muted)] border border-[var(--text-muted)]/50 whitespace-nowrap text-[9px]">COMPLETED</span>;
-      default: return <span className="px-2 py-1 bg-[var(--text-secondary)]/20 text-[var(--text-secondary)] border border-[var(--text-secondary)]/50 whitespace-nowrap text-[9px]">OPEN</span>;
-    }
+  const renderStatusStepper = (status) => {
+    const steps = ['Assigned', 'Accepted', 'Repair Started', 'Completed'];
+    const currentIndex = steps.indexOf(status) === -1 ? 0 : steps.indexOf(status);
+
+    return (
+      <div className="flex items-center justify-center gap-1">
+        {steps.map((step, index) => {
+          const isCompleted = index < currentIndex;
+          const isActive = index === currentIndex;
+          const isPending = index > currentIndex;
+
+          let colorClass = 'bg-[var(--text-muted)] opacity-20';
+          if (isCompleted) colorClass = 'bg-[#107C10]';
+          if (isActive && step === 'Repair Started') colorClass = 'bg-[#D83B01] animate-pulse shadow-[0_0_8px_rgba(216,59,1,0.8)]';
+          else if (isActive) colorClass = 'bg-[var(--status-info)] shadow-[0_0_5px_rgba(0,120,212,0.5)]';
+
+          return (
+            <div key={step} className="flex flex-col items-center group relative">
+              <div className={`h-1.5 w-6 rounded-full transition-all duration-300 ${colorClass}`} title={step}></div>
+              {isActive && <div className="text-[8px] font-bold uppercase mt-1 tracking-tighter text-[var(--text-primary)] absolute top-2 whitespace-nowrap">{step}</div>}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const handleCompleteSubmit = (e) => {
@@ -53,45 +79,27 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
   const renderActionButtons = (task) => {
     if (task.status === 'Assigned') {
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, { status: 'Accepted', acceptedTime: new Date().toISOString() }); }}
-          className="w-full py-1.5 px-3 bg-[var(--status-info)] hover:bg-[#004A99] text-white text-[10px] font-bold border border-[var(--status-info)] uppercase transition-colors"
-        >
+        <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, { status: 'Accepted', acceptedTime: new Date().toISOString() }); }} className="w-full py-1.5 px-3 bg-[var(--status-info)] hover:bg-[#004A99] text-white text-[10px] font-bold border border-[var(--status-info)] uppercase transition-colors">
           Accept Job
         </button>
       );
     }
     if (task.status === 'Accepted') {
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, { status: 'Repair Started', repairStartedTime: new Date().toISOString() }); }}
-          className="w-full py-1.5 px-3 bg-[#107C10] hover:bg-[#0B5A0B] text-white text-[10px] font-bold border border-[#107C10] uppercase transition-colors"
-        >
+        <button onClick={(e) => { e.stopPropagation(); onUpdateStatus(task.id, { status: 'Repair Started', repairStartedTime: new Date().toISOString() }); }} className="w-full py-1.5 px-3 bg-[#107C10] hover:bg-[#0B5A0B] text-white text-[10px] font-bold border border-[#107C10] uppercase transition-colors">
           Start Repair
         </button>
       );
     }
     if (task.status === 'Repair Started') {
       return (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setModalTask(task);
-            setRemarks('');
-            setPartsChanged('');
-          }}
-          className="w-full py-1.5 px-3 bg-[#D83B01] hover:bg-[#B33101] text-white text-[10px] font-bold border border-[#D83B01] uppercase transition-colors shadow-sm"
-        >
+        <button onClick={(e) => { e.stopPropagation(); setModalTask(task); setRemarks(''); setPartsChanged(''); }} className="w-full py-1.5 px-3 bg-[#D83B01] hover:bg-[#B33101] text-white text-[10px] font-bold border border-[#D83B01] uppercase transition-colors shadow-[0_0_10px_rgba(216,59,1,0.4)]">
           Mark Completed
         </button>
       );
     }
     if (task.status === 'Completed') {
-        return (
-            <div className="w-full text-center py-1.5 px-3 text-[10px] font-bold text-[var(--text-muted)] border border-[var(--text-muted)]/20 bg-[var(--bg-app)]">
-                VERIFY PENDING
-            </div>
-        );
+        return <div className="w-full text-center py-1.5 px-3 text-[10px] font-bold text-[var(--text-muted)] border border-[var(--text-muted)]/20 bg-[var(--bg-app)]">VERIFY PENDING</div>;
     }
     return <span className="text-[10px] text-[var(--text-muted)] uppercase">No Action</span>;
   };
@@ -100,11 +108,11 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
     <div className="flex flex-col h-full bg-[var(--bg-app)] relative">
       <div className="flex items-center justify-between p-3 bg-[var(--bg-panel)] border-b border-[var(--border-strong)]">
         <h1 className="text-sm font-bold uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-2">
-          <Wrench className="w-4 h-4 text-[var(--status-info)]" />
-          My Active Tasks
+          <Activity className="w-4 h-4 text-[var(--status-info)] animate-pulse" />
+          Live Technician Terminal
         </h1>
-        <div className="text-[10px] font-mono text-[var(--text-secondary)] bg-[var(--bg-app)] px-2 py-1 border border-[var(--border-strong)]">
-          TOTAL TASKS: {myTasks.length}
+        <div className="text-[10px] font-mono text-[var(--text-secondary)] bg-[var(--bg-app)] px-2 py-1 border border-[var(--border-strong)] shadow-inner">
+          ACTIVE TASKS: {myTasks.length}
         </div>
       </div>
 
@@ -113,57 +121,104 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
           <table className="w-full text-left border-collapse table-fixed">
             <thead className="sticky top-0 bg-[var(--bg-panel)] z-10 shadow-sm">
               <tr>
-                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24">ID</th>
-                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-48">Machine</th>
-                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)]">Reported Fault & Details</th>
+                <th className="py-2.5 px-2 w-8 border-b border-[var(--border-strong)]"></th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-20">ID</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-48">Machine Asset</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)]">Fault Telemetry</th>
                 <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24">Priority</th>
-                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-28 text-center">Status</th>
-                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-24 text-center">Active Time</th>
-                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-36 text-center">Quick Action</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-32 text-center">Pipeline</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-28 text-center">SLA Time</th>
+                <th className="py-2.5 px-3 text-[10px] font-bold text-[var(--text-secondary)] uppercase border-b border-[var(--border-strong)] w-36 text-center">Execution</th>
               </tr>
             </thead>
             <tbody className="bg-[var(--bg-app)]">
               {myTasks.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center text-[var(--text-muted)] border-b border-[var(--border-strong)]">
+                  <td colSpan="8" className="p-12 text-center text-[var(--text-muted)] border-b border-[var(--border-strong)]">
                     <div className="flex flex-col items-center justify-center">
-                      <Info className="w-8 h-8 mb-2 opacity-50 text-[var(--text-secondary)]" />
-                      <span className="text-xs font-bold uppercase tracking-wider">No Active Tasks Assigned</span>
+                      <Wrench className="w-8 h-8 mb-2 opacity-30 text-[var(--text-secondary)]" />
+                      <span className="text-xs font-bold uppercase tracking-wider">No Tasks Assigned. System Idle.</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                myTasks.map((task) => (
-                  <tr
-                    key={task.id}
-                    className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-panel-hover)] transition-colors group"
-                  >
-                    <td className="py-3 px-3 text-xs font-mono text-[var(--text-secondary)]">{task.id}</td>
-                    <td className="py-3 px-3">
-                        <div className="text-xs font-bold text-[var(--text-primary)] truncate">{task.machineName}</div>
-                        <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">{task.machineId}</div>
-                    </td>
-                    <td className="py-3 px-3">
-                        <div className="text-xs font-bold text-[var(--text-primary)]">{task.faultName}</div>
-                        {task.description && (
-                            <div className="text-[10px] text-[var(--text-secondary)] truncate max-w-sm mt-0.5" title={task.description}>
-                                {task.description}
+                myTasks.map((task) => {
+                  const activeMinutes = task.createdTime ? Math.round((new Date() - new Date(task.createdTime)) / 60000) : 0;
+                  const isSlaBreached = activeMinutes > 60 && task.status !== 'Completed';
+                  const isExpanded = expandedRowId === task.id;
+
+                  return (
+                    <React.Fragment key={task.id}>
+                      <tr 
+                        className={`border-b border-[var(--border-subtle)] transition-colors group cursor-pointer ${isExpanded ? 'bg-[var(--bg-panel-hover)]' : 'hover:bg-[var(--bg-panel-hover)]'}`}
+                        onClick={() => setExpandedRowId(isExpanded ? null : task.id)}
+                      >
+                        <td className="py-3 px-2 text-center">
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-[var(--text-secondary)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />}
+                        </td>
+                        <td className="py-3 px-3 text-xs font-mono text-[var(--text-secondary)]">{task.id}</td>
+                        <td className="py-3 px-3">
+                            <div className="text-xs font-bold text-[var(--text-primary)] truncate">{task.machineName}</div>
+                            <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">{task.machineId}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                            <div className="text-xs font-bold text-[var(--text-primary)]">{task.faultName}</div>
+                            <div className="text-[9px] text-[var(--text-muted)] uppercase mt-1">By {task.operatorName}</div>
+                        </td>
+                        <td className={`py-3 px-3 text-xs font-bold ${getPriorityColor(task.priority)}`}>{task.priority}</td>
+                        <td className="py-3 px-3 align-middle h-14">
+                            {renderStatusStepper(task.status)}
+                        </td>
+                        <td className="py-3 px-3 text-center align-middle">
+                          <div className={`text-xs font-mono font-bold flex flex-col items-center justify-center ${isSlaBreached ? 'text-[#E81123] animate-pulse drop-shadow-[0_0_5px_rgba(232,17,35,0.8)]' : 'text-[#D83B01]'}`}>
+                            {isSlaBreached && <AlertTriangle className="w-3 h-3 mb-0.5" />}
+                            {activeMinutes}m
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 align-middle" onClick={(e) => e.stopPropagation()}>
+                            {renderActionButtons(task)}
+                        </td>
+                      </tr>
+
+                      {/* Expandable History Drawer */}
+                      {isExpanded && (
+                        <tr className="bg-[var(--bg-panel)] border-b border-[var(--border-strong)] shadow-inner">
+                          <td colSpan="8" className="p-0">
+                            <div className="p-4 border-l-4 border-[var(--status-info)] ml-4 my-2 bg-[var(--bg-app)]">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Clock className="w-4 h-4 text-[var(--text-secondary)]" />
+                                <h3 className="text-xs font-bold uppercase text-[var(--text-primary)]">Historical Telemetry: {task.machineName}</h3>
+                              </div>
+                              
+                              {getMachineHistory(task.machineId, task.id).length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  {getMachineHistory(task.machineId, task.id).map(history => (
+                                    <div key={history.id} className="border border-[var(--border-subtle)] p-2 bg-[var(--bg-panel)]">
+                                      <div className="text-[10px] font-mono text-[var(--text-muted)] mb-1">
+                                        {new Date(history.createdTime).toLocaleDateString()} - {history.id}
+                                      </div>
+                                      <div className="text-[11px] font-bold text-[var(--text-primary)]">{history.faultName}</div>
+                                      <div className="mt-2 text-[10px] text-[var(--text-secondary)] border-l-2 border-[#107C10] pl-1 italic">
+                                        "{history.remarks}"
+                                      </div>
+                                      {history.partsChanged && history.partsChanged !== 'None' && (
+                                        <div className="mt-1 text-[9px] text-[#D83B01] font-mono uppercase">
+                                          Parts: {history.partsChanged}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-[var(--text-muted)] italic">No recent failure history found for this asset.</div>
+                              )}
                             </div>
-                        )}
-                        <div className="text-[9px] text-[var(--text-muted)] uppercase mt-1">Reported by {task.operatorName}</div>
-                    </td>
-                    <td className={`py-3 px-3 text-xs font-bold ${getPriorityColor(task.priority)}`}>{task.priority}</td>
-                    <td className="py-3 px-3 text-[10px] font-bold text-center align-middle">{getStatusBadge(task.status)}</td>
-                    <td className="py-3 px-3 text-center align-middle">
-                      <div className="text-xs font-mono font-bold text-[#D83B01]">
-                        {task.createdTime ? Math.round((new Date() - new Date(task.createdTime)) / 60000) : 0}m
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 align-middle">
-                        {renderActionButtons(task)}
-                    </td>
-                  </tr>
-                ))
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -172,64 +227,63 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
 
       {/* Completion Modal Overlay */}
       {modalTask && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl w-full max-w-md flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center justify-between p-3 border-b border-[var(--border-strong)] bg-[#D83B01]">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide">Complete Work Order</h2>
-              <button onClick={() => setModalTask(null)} className="text-white hover:text-white/70">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl w-full max-w-md flex flex-col shadow-[0_0_40px_rgba(216,59,1,0.2)] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-[#D83B01]"></div>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-strong)]">
+              <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-[#D83B01]" />
+                Execute Work Order
+              </h2>
+              <button onClick={() => setModalTask(null)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <form onSubmit={handleCompleteSubmit} className="p-5 flex flex-col gap-4">
-              <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 mb-2">
-                <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold">Asset</div>
-                <div className="text-xs font-bold text-[var(--text-primary)] mb-2">{modalTask.machineName} ({modalTask.machineId})</div>
-                <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold">Fault</div>
-                <div className="text-xs text-[var(--text-primary)]">{modalTask.faultName}</div>
+              <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 flex justify-between items-center">
+                <div>
+                  <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold">Asset</div>
+                  <div className="text-xs font-bold text-[var(--text-primary)]">{modalTask.machineName} ({modalTask.machineId})</div>
+                </div>
+                <button type="button" className="text-[#004A99] hover:text-[#0078D4] flex items-center gap-1 text-[10px] font-bold uppercase transition-colors" title="Dummy Link - No real PDF">
+                  <FileText className="w-3 h-3" /> SOP
+                </button>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-                  Repair Remarks / Solution <span className="text-[#E81123]">*</span>
+                  Root Cause & Resolution <span className="text-[#E81123]">*</span>
                 </label>
                 <textarea
                   required
                   rows="3"
-                  placeholder="Describe the root cause and exactly what was done to fix it..."
+                  placeholder="Describe exactly what was fixed..."
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none resize-none"
+                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[#D83B01] focus:ring-1 focus:ring-[#D83B01] outline-none resize-none transition-all"
                 ></textarea>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-                  Parts Changed / Replaced
+                  Parts Replaced
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 1x O-Ring, 2x M6 Bolts (Leave blank if none)"
+                  placeholder="e.g. 1x O-Ring (Leave blank if none)"
                   value={partsChanged}
                   onChange={(e) => setPartsChanged(e.target.value)}
-                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
+                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[#D83B01] focus:ring-1 focus:ring-[#D83B01] outline-none transition-all"
                 />
               </div>
 
               <div className="mt-4 pt-4 border-t border-[var(--border-strong)] flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setModalTask(null)}
-                  className="px-4 py-2 bg-[var(--bg-app)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-xs font-bold border border-[var(--border-strong)] uppercase transition-colors"
-                >
-                  Cancel
+                <button type="button" onClick={() => setModalTask(null)} className="px-4 py-2 bg-[var(--bg-app)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-xs font-bold border border-[var(--border-strong)] uppercase transition-colors">
+                  Abort
                 </button>
-                <button
-                  type="submit"
-                  disabled={!remarks.trim()}
-                  className="px-6 py-2 bg-[#D83B01] hover:bg-[#B33101] text-white text-xs font-bold border border-[#D83B01] uppercase transition-colors disabled:opacity-50"
-                >
-                  Confirm Completion
+                <button type="submit" disabled={!remarks.trim()} className="px-6 py-2 bg-[#D83B01] hover:bg-[#B33101] text-white text-xs font-bold border border-[#D83B01] uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  Verify & Close
                 </button>
               </div>
             </form>
