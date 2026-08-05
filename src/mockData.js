@@ -34,8 +34,7 @@ export const MACHINES = [
   { id: 'M-6049004', name: 'Crank Press 6049004', code: '6049004', location: 'Crank Press Line 01', type: 'Crank Press', status: 'Operational', criticality: 'High' },
   { id: 'M-6049002', name: 'Crank Press 6049002', code: '6049002', location: 'Crank Press Line 01', type: 'Crank Press', status: 'Operational', criticality: 'High' },
 
-  // Testing (1 Machine)
-  { id: 'M-TEST001', name: 'Testing Machine 01', code: 'TEST001', location: 'Testing Lab', type: 'Testing', status: 'Operational', criticality: 'Low' }
+
 ];
 
 export const FAULT_CATEGORIES = [
