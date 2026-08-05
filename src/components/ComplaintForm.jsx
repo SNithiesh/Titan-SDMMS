@@ -105,33 +105,20 @@ export default function ComplaintForm({ onSubmitSuccess }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-              Asset Category <span className="text-[#E81123]">*</span>
-            </label>
-            <select
-              required
-              value={formData.categoryId}
-              onChange={(e) => setFormData({ ...formData, categoryId: e.target.value, machineId: '' })}
-              className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
-            >
-              <option value="">-- Select Category --</option>
-              {FAULT_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
               Machine / Asset <span className="text-[#E81123]">*</span>
             </label>
             <div className="flex flex-col gap-2">
               <select
                 required
-                disabled={!formData.categoryId}
                 value={formData.machineId}
-                onChange={(e) => setFormData({ ...formData, machineId: e.target.value })}
-                className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none disabled:opacity-50"
+                onChange={(e) => {
+                  const mId = e.target.value;
+                  const machine = availableMachines.find(m => m.id === mId);
+                  setFormData({ ...formData, machineId: mId, categoryId: machine ? machine.categoryId : formData.categoryId });
+                }}
+                className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
               >
-                <option value="">-- Standard Selection (All Machines) --</option>
+                <option value="">-- Select Machine/Asset --</option>
                 {availableMachines.map((m) => (
                   <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
                 ))}
@@ -144,19 +131,34 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                   value={machineSearch}
                   onChange={(e) => setMachineSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMachineSearch())}
-                  className="flex-1 p-1.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none disabled:opacity-50"
-                  disabled={!formData.categoryId}
+                  className="flex-1 p-1.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none"
                 />
                 <button 
                   type="button"
                   onClick={handleMachineSearch}
-                  disabled={!formData.categoryId || !machineSearch}
+                  disabled={!machineSearch}
                   className="px-3 py-1.5 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
                 >
                   Search
                 </button>
               </div>
             </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
+              Asset Category <span className="text-[#E81123]">*</span>
+            </label>
+            <select
+              required
+              value={formData.categoryId}
+              onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+              className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
+            >
+              <option value="">-- Select Category --</option>
+              {FAULT_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
