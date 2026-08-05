@@ -104,6 +104,25 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
     return <span className="text-[10px] text-[var(--text-muted)] uppercase">No Action</span>;
   };
 
+  const quickActions = [
+    "Cleaned Sensors",
+    "Replaced O-Ring",
+    "Tightened Belt",
+    "Lubricated Bearings",
+    "Reset Calibration",
+    "Replaced Fuse",
+    "Cleared Jam"
+  ];
+
+  const handleQuickAction = (action) => {
+    setRemarks(prev => {
+      const trimmed = prev.trim();
+      if (!trimmed) return action + ". ";
+      if (trimmed.includes(action)) return prev;
+      return trimmed + (trimmed.endsWith(".") ? " " : ". ") + action + ". ";
+    });
+  };
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-app)] relative">
       <div className="flex items-center justify-between p-3 bg-[var(--bg-panel)] border-b border-[var(--border-strong)]">
@@ -228,9 +247,10 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
       {/* Completion Modal Overlay */}
       {modalTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl w-full max-w-md flex flex-col shadow-[0_0_40px_rgba(216,59,1,0.2)] relative overflow-hidden max-h-[90vh]">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl w-full max-w-4xl flex flex-col shadow-[0_0_40px_rgba(216,59,1,0.2)] relative overflow-hidden max-h-[90vh]">
             <div className="absolute top-0 left-0 w-full h-1 bg-[#D83B01]"></div>
-            <div className="flex items-center justify-between p-4 border-b border-[var(--border-strong)]">
+            
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-strong)] bg-[#111] bg-opacity-40" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
               <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-2">
                 <Wrench className="w-4 h-4 text-[#D83B01]" />
                 Execute Work Order
@@ -240,53 +260,115 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
               </button>
             </div>
             
-            <form onSubmit={handleCompleteSubmit} className="p-5 flex flex-col gap-4 overflow-y-auto">
-              <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 flex justify-between items-center">
-                <div>
-                  <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold">Asset</div>
-                  <div className="text-xs font-bold text-[var(--text-primary)]">{modalTask.machineName} ({modalTask.machineId})</div>
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+              {/* LEFT COLUMN: Context & History Engine */}
+              <div className="w-full md:w-5/12 border-b md:border-b-0 md:border-r border-[var(--border-strong)] flex flex-col bg-[var(--bg-app)] overflow-y-auto">
+                <div className="p-4 flex-1">
+                  <div className="mb-4">
+                    <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider mb-1">Target Asset</div>
+                    <div className="text-sm font-bold text-[var(--text-primary)]">{modalTask.machineName}</div>
+                    <div className="text-[10px] font-mono text-[var(--text-muted)] flex justify-between items-center mt-1">
+                      <span>ID: {modalTask.machineId}</span>
+                      <button type="button" className="text-[#004A99] hover:text-[#0078D4] flex items-center gap-1 font-bold uppercase transition-colors">
+                        <FileText className="w-3 h-3" /> SOP
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider flex items-center gap-1.5 mb-2 border-b border-[var(--border-strong)] pb-1">
+                      <Clock className="w-3 h-3 text-[#D83B01]" />
+                      Historical Telemetry (Last 3)
+                    </div>
+                    {getMachineHistory(modalTask.machineId, modalTask.id).length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {getMachineHistory(modalTask.machineId, modalTask.id).map(history => (
+                          <div key={history.id} className="border border-[var(--border-subtle)] p-2 bg-[var(--bg-panel)] relative overflow-hidden group">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#107C10] opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="flex justify-between items-start pl-2">
+                              <div>
+                                <div className="text-[10px] font-bold text-[var(--text-primary)] truncate max-w-[150px]">{history.faultName}</div>
+                                <div className="text-[9px] text-[var(--text-muted)] italic mt-1 leading-tight line-clamp-2">"{history.remarks}"</div>
+                              </div>
+                              <div className="text-[9px] font-mono text-[var(--text-muted)] text-right">
+                                {new Date(history.createdTime).toLocaleDateString()}<br/>
+                                <span className="text-[var(--text-secondary)]">{history.id}</span>
+                              </div>
+                            </div>
+                            {history.partsChanged && history.partsChanged !== 'None' && (
+                              <div className="mt-1.5 pl-2 text-[9px] text-[#D83B01] font-mono uppercase font-bold">
+                                Parts: {history.partsChanged}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-[var(--text-muted)] italic py-2">No recent failure history found for this asset.</div>
+                    )}
+                  </div>
                 </div>
-                <button type="button" className="text-[#004A99] hover:text-[#0078D4] flex items-center gap-1 text-[10px] font-bold uppercase transition-colors" title="Dummy Link - No real PDF">
-                  <FileText className="w-3 h-3" /> SOP
-                </button>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-                  Root Cause & Resolution <span className="text-[#E81123]">*</span>
-                </label>
-                <textarea
-                  required
-                  rows="3"
-                  placeholder="Describe exactly what was fixed..."
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[#D83B01] focus:ring-1 focus:ring-[#D83B01] outline-none resize-none transition-all"
-                ></textarea>
-              </div>
+              {/* RIGHT COLUMN: Input Forms & Quick Actions */}
+              <div className="w-full md:w-7/12 flex flex-col bg-[var(--bg-panel)] overflow-y-auto">
+                <form onSubmit={handleCompleteSubmit} className="p-4 flex flex-col h-full">
+                  
+                  <div className="mb-5">
+                    <label className="block text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+                      Smart Suggestions (Tap to Auto-fill)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {quickActions.map(action => (
+                        <button
+                          key={action}
+                          type="button"
+                          onClick={() => handleQuickAction(action)}
+                          className="px-2 py-1 text-[10px] font-bold uppercase border border-[var(--border-strong)] bg-[var(--bg-app)] text-[var(--text-secondary)] hover:border-[#D83B01] hover:text-[#D83B01] transition-colors rounded-sm"
+                        >
+                          + {action}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-                  Parts Replaced
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1x O-Ring (Leave blank if none)"
-                  value={partsChanged}
-                  onChange={(e) => setPartsChanged(e.target.value)}
-                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[#D83B01] focus:ring-1 focus:ring-[#D83B01] outline-none transition-all"
-                />
-              </div>
+                  <div className="flex-1 flex flex-col min-h-[150px] mb-4">
+                    <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
+                      Root Cause & Resolution <span className="text-[#E81123]">*</span>
+                    </label>
+                    <textarea
+                      required
+                      placeholder="Describe exactly what was fixed..."
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      className="flex-1 w-full p-3 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[#D83B01] focus:ring-1 focus:ring-[#D83B01] outline-none resize-none transition-all"
+                    ></textarea>
+                  </div>
 
-              <div className="mt-4 pt-4 border-t border-[var(--border-strong)] flex justify-end gap-3">
-                <button type="button" onClick={() => setModalTask(null)} className="px-4 py-2 bg-[var(--bg-app)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-xs font-bold border border-[var(--border-strong)] uppercase transition-colors">
-                  Abort
-                </button>
-                <button type="submit" disabled={!remarks.trim()} className="px-6 py-2 bg-[#D83B01] hover:bg-[#B33101] text-white text-xs font-bold border border-[#D83B01] uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                  Verify & Close
-                </button>
+                  <div className="mb-2">
+                    <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
+                      Parts Replaced (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1x O-Ring (Leave blank if none)"
+                      value={partsChanged}
+                      onChange={(e) => setPartsChanged(e.target.value)}
+                      className="w-full p-2.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[#D83B01] focus:ring-1 focus:ring-[#D83B01] outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-[var(--border-strong)] flex justify-end gap-3 shrink-0">
+                    <button type="button" onClick={() => setModalTask(null)} className="px-5 py-2 bg-[var(--bg-app)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-xs font-bold border border-[var(--border-strong)] uppercase transition-colors">
+                      Abort
+                    </button>
+                    <button type="submit" disabled={!remarks.trim()} className="px-8 py-2 bg-[#D83B01] hover:bg-[#B33101] text-white text-xs font-bold border border-[#D83B01] uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                      Verify & Close
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
