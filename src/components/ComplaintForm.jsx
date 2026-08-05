@@ -99,7 +99,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 pb-16 md:pb-4 flex flex-col gap-4">
         
         {/* ROW 1 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,7 +137,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                   type="button"
                   onClick={handleMachineSearch}
                   disabled={!machineSearch}
-                  className="px-3 py-1.5 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
                 >
                   Search
                 </button>
@@ -196,7 +196,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                   type="button"
                   onClick={handleFaultSearch}
                   disabled={!formData.categoryId || !faultSearch}
-                  className="px-3 py-1.5 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
                 >
                   Search
                 </button>
@@ -254,16 +254,16 @@ export default function ComplaintForm({ onSubmitSuccess }) {
           <button
             type="button"
             onClick={() => setFormData({ categoryId: '', machineId: '', faultName: '', priority: 'Medium', shift: 'Shift 1 (06:00 - 14:00)', description: '' })}
-            className="px-4 py-1.5 bg-[var(--border-subtle)] hover:bg-[var(--border-strong)] text-[var(--text-secondary)] hover:text-white text-xs font-bold flex items-center gap-2 border border-[var(--border-strong)]"
+            className="px-4 py-2.5 bg-[var(--border-subtle)] hover:bg-[var(--border-strong)] text-[var(--text-secondary)] hover:text-white text-xs font-bold flex items-center gap-2 border border-[var(--border-strong)]"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
             CLEAR
           </button>
           <button
             type="submit"
-            className="px-6 py-1.5 bg-[var(--status-info)] hover:bg-[#004A99] text-white text-xs font-bold flex items-center gap-2 border border-[var(--status-info)]"
+            className="px-6 py-2.5 bg-[var(--status-info)] hover:bg-[#004A99] text-white text-xs font-bold flex items-center gap-2 border border-[var(--status-info)]"
           >
-            <Save className="w-3.5 h-3.5" />
+            <Save className="w-4 h-4" />
             SUBMIT REQUEST
           </button>
         </div>

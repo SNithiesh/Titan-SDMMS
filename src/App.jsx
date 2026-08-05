@@ -22,7 +22,7 @@ function LiveClock() {
     return () => clearInterval(timer);
   }, []);
   return (
-    <div className="flex items-center gap-2 bg-[var(--bg-app)] border border-[var(--border-strong)] px-2 py-1 rounded-sm text-[var(--status-info)]">
+    <div className="hidden sm:flex items-center gap-2 bg-[var(--bg-app)] border border-[var(--border-strong)] px-2 py-1 rounded-sm text-[var(--status-info)]">
       <Clock className="w-3.5 h-3.5" />
       <span className="text-[10px] font-mono font-bold">{time.toLocaleString()}</span>
     </div>
@@ -238,11 +238,11 @@ export default function App() {
         
         {/* Top Context Bar */}
         <header className="h-12 bg-[var(--bg-panel)] border-b border-[var(--border-strong)] flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wide">
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-[10px] sm:text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wide truncate">
               {currentRole} WORKSPACE
             </span>
-            <span className="text-[10px] bg-[var(--border-subtle)] px-1.5 py-0.5 text-[var(--text-primary)]">
+            <span className="hidden sm:inline-block text-[10px] bg-[var(--border-subtle)] px-1.5 py-0.5 text-[var(--text-primary)]">
               BACK COVER DEPT
             </span>
           </div>
@@ -268,8 +268,8 @@ export default function App() {
         {/* Dynamic Workspace Content */}
         <main className="flex-1 overflow-auto p-4 bg-[var(--bg-app)]">
           {currentRole === 'Operator' && (
-            <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col">
-              <div className="flex items-center gap-2 bg-[var(--bg-panel)] p-1.5 border border-[var(--border-strong)]">
+            <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col pb-16 md:pb-0">
+              <div className="flex items-center gap-2 bg-[var(--bg-panel)] p-1.5 border border-[var(--border-strong)] overflow-x-auto whitespace-nowrap">
                 <button
                   onClick={() => setActiveTab('raise')}
                   className={`px-4 py-1.5 text-xs font-bold transition-none ${activeTab === 'raise' ? 'bg-[var(--status-info)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--border-subtle)]'}`}
@@ -302,7 +302,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-strong)] flex flex-col h-full min-h-0">
-                  <div className="border-b border-[var(--border-strong)] bg-[var(--bg-panel)] p-2 flex gap-1 overflow-x-auto">
+                  <div className="border-b border-[var(--border-strong)] bg-[var(--bg-panel)] p-2 flex gap-1 overflow-x-auto no-scrollbar">
                     {complaints.filter(c => c.status !== 'Closed').map(c => (
                       <button
                         key={c.id}
@@ -351,7 +351,7 @@ export default function App() {
 
       {/* Mobile-only bottom nav for switching tabs if allowed */}
       {(currentUser.role === 'Supervisor' || currentUser.role === 'Admin') && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-panel)] border-t border-[var(--border-strong)] flex text-[10px] z-50">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-panel)] border-t border-[var(--border-strong)] flex text-[10px] z-50 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.5)]">
           {navItems.map((item) => (
             <button
               key={item.id}

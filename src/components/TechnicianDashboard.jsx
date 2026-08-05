@@ -116,8 +116,8 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto bg-[var(--bg-panel)] p-2">
-        <div className="border border-[var(--border-strong)] h-full overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-x-auto bg-[var(--bg-panel)] p-2 pb-16 md:pb-2">
+        <div className="border border-[var(--border-strong)] h-full flex flex-col min-w-[900px]">
           <table className="w-full text-left border-collapse table-fixed">
             <thead className="sticky top-0 bg-[var(--bg-panel)] z-10 shadow-sm">
               <tr>
@@ -227,8 +227,8 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
 
       {/* Completion Modal Overlay */}
       {modalTask && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl w-full max-w-md flex flex-col shadow-[0_0_40px_rgba(216,59,1,0.2)] relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-2xl w-full max-w-md flex flex-col shadow-[0_0_40px_rgba(216,59,1,0.2)] relative overflow-hidden max-h-[90vh]">
             <div className="absolute top-0 left-0 w-full h-1 bg-[#D83B01]"></div>
             <div className="flex items-center justify-between p-4 border-b border-[var(--border-strong)]">
               <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-2">
@@ -240,7 +240,7 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
               </button>
             </div>
             
-            <form onSubmit={handleCompleteSubmit} className="p-5 flex flex-col gap-4">
+            <form onSubmit={handleCompleteSubmit} className="p-5 flex flex-col gap-4 overflow-y-auto">
               <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 flex justify-between items-center">
                 <div>
                   <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold">Asset</div>

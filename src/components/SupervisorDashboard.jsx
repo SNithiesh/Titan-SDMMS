@@ -32,7 +32,7 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
     <div className="flex flex-col h-full bg-[var(--bg-app)] max-w-7xl mx-auto w-full">
       
       {/* ── KPI METRICS STRIP ── */}
-      <div className="grid grid-cols-4 gap-4 p-4 border-b border-[var(--border-strong)] bg-[var(--bg-panel)]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border-b border-[var(--border-strong)] bg-[var(--bg-panel)]">
         <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 flex flex-col justify-center relative overflow-hidden">
           <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Active Faults</div>
           <div className="text-2xl font-bold font-mono text-[var(--text-primary)]">{activeFaults}</div>
@@ -59,8 +59,8 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
       <div className="flex-1 flex flex-col min-h-0 bg-[var(--bg-panel)] p-4">
         
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wide">Filter View:</span>
             <select
               value={filter}
@@ -78,9 +78,10 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
         </div>
 
         {/* Master Table */}
-        <div className="flex-1 overflow-auto border border-[var(--border-strong)]">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-[var(--bg-panel)] z-10 shadow-sm">
+        <div className="flex-1 overflow-x-auto border border-[var(--border-strong)] bg-[var(--bg-app)] pb-16 md:pb-0">
+          <div className="min-w-[800px]">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 bg-[var(--bg-panel)] z-10 shadow-sm">
               <tr>
                 <th className="py-2 px-3 border-b border-[var(--border-strong)]">ID</th>
                 <th className="py-2 px-3 border-b border-[var(--border-strong)]">Asset</th>
@@ -135,6 +136,7 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
       </div>

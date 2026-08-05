@@ -102,10 +102,10 @@ export default function AnalyticsDashboard({ complaints }) {
         </h1>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 flex flex-col gap-4 no-scrollbar">
+      <div className="flex-1 overflow-auto p-4 pb-16 md:pb-4 flex flex-col gap-4 no-scrollbar">
         
         {/* ── KPI METRICS STRIP ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] p-4 relative overflow-hidden">
             <div className="text-[10px] text-[var(--text-secondary)] uppercase font-bold mb-1">Total Reported Faults</div>
             <div className="text-3xl font-bold tabular-nums text-[var(--text-primary)]">{totalFaults}</div>
@@ -190,7 +190,8 @@ export default function AnalyticsDashboard({ complaints }) {
             <span className="text-[var(--status-info)] cursor-pointer hover:underline">View Full Report</span>
           </div>
           <div className="p-0 overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <div className="min-w-[600px]">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
                   <th className="py-2 px-4 border-b border-[var(--border-subtle)] bg-[var(--bg-app)]">Rank</th>
@@ -227,6 +228,7 @@ export default function AnalyticsDashboard({ complaints }) {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 

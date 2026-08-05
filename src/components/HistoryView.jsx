@@ -47,12 +47,12 @@ export default function HistoryView({ complaints }) {
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-app)] max-w-7xl mx-auto w-full">
-      <div className="p-3 bg-[var(--bg-panel)] border-b border-[var(--border-strong)] flex items-center justify-between">
+      <div className="p-3 bg-[var(--bg-panel)] border-b border-[var(--border-strong)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-sm font-bold uppercase tracking-wide text-[var(--text-primary)] flex items-center gap-2">
           <History className="w-4 h-4 text-[var(--text-secondary)]" />
           Historical Audit Log
         </h1>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2 top-2" />
             <input
@@ -74,8 +74,8 @@ export default function HistoryView({ complaints }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto bg-[var(--bg-panel)] p-4">
-        <div className="border border-[var(--border-strong)]">
+      <div className="flex-1 overflow-x-auto bg-[var(--bg-panel)] p-4 pb-16 md:pb-4">
+        <div className="border border-[var(--border-strong)] min-w-[800px]">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-[var(--bg-panel)] z-10 shadow-sm">
               <tr>
