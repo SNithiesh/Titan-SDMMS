@@ -1,18 +1,12 @@
-import { supabase } from '../config/database.js';
-import { INITIAL_COMPLAINTS } from '../../src/mockData.js';
+import { db } from '../config/database.js';
 
-/**
- * Complaint Repository — All database queries for the complaints table
- */
-
-// Map DB snake_case row → frontend camelCase object
 function mapComplaint(item) {
   return {
     id: item.id,
     machineId: item.machine_id,
     machineName: item.machine_name,
     operatorName: item.operator_name,
-    employeeId: item.operator_employee_id || item.employee_id,
+    employeeId: item.employee_id,
     department: item.department,
     shift: item.shift,
     categoryId: item.category_id,
@@ -21,7 +15,7 @@ function mapComplaint(item) {
     priority: item.priority,
     description: item.description,
     status: item.status,
-    assignedTechnician: item.assigned_technician || item.assigned_technician_id,
+    assignedTechnician: item.assigned_technician,
     createdTime: item.created_time,
     assignedTime: item.assigned_time,
     acceptedTime: item.accepted_time,
@@ -33,164 +27,101 @@ function mapComplaint(item) {
   };
 }
 
-/**
- * Fetch all complaints (newest first)
- */
 export async function getAllComplaints() {
-  if (!supabase) return { data: INITIAL_COMPLAINTS, isLive: false };
-
-  const { data, error } = await supabase
-    .from('complaints')
-    .select('*')
-    .order('created_time', { ascending: false });
-
-  if (error) {
-    console.warn('[COMPLAINTS] Fetch error, using demo data:', error.message);
-    return { data: INITIAL_COMPLAINTS, isLive: false };
-  }
-
-  return { data: data.map(mapComplaint), isLive: true };
+  const rows = db.prepare('SELECT * FROM complaints ORDER BY created_time DESC').all();
+  return { data: rows.map(mapComplaint), isLive: true };
 }
 
-/**
- * Fetch complaints for a specific operator (their own only)
- */
 export async function getComplaintsByOperator(employeeId) {
-  if (!supabase) {
-    return { data: INITIAL_COMPLAINTS.filter(c => c.employeeId === employeeId), isLive: false };
-  }
-
-  const { data, error } = await supabase
-    .from('complaints')
-    .select('*')
-    .eq('employee_id', employeeId)
-    .order('created_time', { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return { data: data.map(mapComplaint), isLive: true };
+  const rows = db.prepare('SELECT * FROM complaints WHERE employee_id = ? ORDER BY created_time DESC').all(employeeId);
+  return { data: rows.map(mapComplaint), isLive: true };
 }
 
-/**
- * Fetch complaints assigned to a specific technician
- */
 export async function getComplaintsByTechnician(employeeId) {
-  if (!supabase) {
-    return { data: INITIAL_COMPLAINTS.filter(c => c.assignedTechnician === employeeId), isLive: false };
-  }
-
-  const { data, error } = await supabase
-    .from('complaints')
-    .select('*')
-    .eq('assigned_technician', employeeId)
-    .order('created_time', { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return { data: data.map(mapComplaint), isLive: true };
+  const rows = db.prepare('SELECT * FROM complaints WHERE assigned_technician = ? ORDER BY created_time DESC').all(employeeId);
+  return { data: rows.map(mapComplaint), isLive: true };
 }
 
-/**
- * Create a new complaint
- */
 export async function createComplaint(complaint) {
-  if (!supabase) return { success: true, isLive: false };
-
-  // Ensure the referenced machine exists
   await ensureMachineExists(complaint.machineId, complaint.machineName);
 
-  const { data, error } = await supabase
-    .from('complaints')
-    .insert([{
-      id: complaint.id,
-      machine_id: complaint.machineId,
-      machine_name: complaint.machineName,
-      operator_name: complaint.operatorName,
-      employee_id: complaint.employeeId,
-      department: complaint.department || 'Back Cover Dept',
-      shift: complaint.shift || 'Shift A',
-      category_id: complaint.categoryId || 'mechanical',
-      category_name: complaint.categoryName || 'Mechanical Maintenance',
-      fault_name: complaint.faultName,
-      priority: complaint.priority || 'High',
-      description: complaint.description || '',
-      status: 'New',
-      created_time: new Date().toISOString()
-    }])
-    .select()
-    .single();
+  db.prepare(`
+    INSERT INTO complaints (
+      id, machine_id, machine_name, operator_name, employee_id, department, shift,
+      category_id, category_name, fault_name, priority, description, status, created_time
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    complaint.id,
+    complaint.machineId,
+    complaint.machineName,
+    complaint.operatorName,
+    complaint.employeeId,
+    complaint.department || 'Back Cover Dept',
+    complaint.shift || 'Shift A',
+    complaint.categoryId || 'mechanical',
+    complaint.categoryName || 'Mechanical Maintenance',
+    complaint.faultName,
+    complaint.priority || 'High',
+    complaint.description || '',
+    'New',
+    new Date().toISOString()
+  );
 
-  if (error) throw new Error(error.message);
-  return { success: true, data: mapComplaint(data), isLive: true };
+  const row = db.prepare('SELECT * FROM complaints WHERE id = ?').get(complaint.id);
+  return { success: true, data: mapComplaint(row), isLive: true };
 }
 
-/**
- * Update complaint fields (status, technician, timestamps, remarks)
- */
 export async function updateComplaint(complaintId, updates) {
-  if (!supabase) return { success: true, isLive: false };
+  const setClauses = [];
+  const values = [];
 
-  const dbUpdates = {};
-  if (updates.status !== undefined) dbUpdates.status = updates.status;
-  if (updates.assignedTechnician !== undefined) dbUpdates.assigned_technician = updates.assignedTechnician;
-  if (updates.assignedTime !== undefined) dbUpdates.assigned_time = updates.assignedTime;
-  if (updates.acceptedTime !== undefined) dbUpdates.accepted_time = updates.acceptedTime;
-  if (updates.repairStartedTime !== undefined) dbUpdates.repair_started_time = updates.repairStartedTime;
-  if (updates.completedTime !== undefined) dbUpdates.completed_time = updates.completedTime;
-  if (updates.verifiedTime !== undefined) dbUpdates.verified_time = updates.verifiedTime;
-  if (updates.remarks !== undefined) dbUpdates.remarks = updates.remarks;
-  if (updates.partsChanged !== undefined) dbUpdates.parts_changed = updates.partsChanged;
+  const map = {
+    status: 'status',
+    assignedTechnician: 'assigned_technician',
+    assignedTime: 'assigned_time',
+    acceptedTime: 'accepted_time',
+    repairStartedTime: 'repair_started_time',
+    completedTime: 'completed_time',
+    verifiedTime: 'verified_time',
+    remarks: 'remarks',
+    partsChanged: 'parts_changed'
+  };
 
-  const { error } = await supabase
-    .from('complaints')
-    .update(dbUpdates)
-    .eq('id', complaintId);
+  for (const [key, dbCol] of Object.entries(map)) {
+    if (updates[key] !== undefined) {
+      setClauses.push(`${dbCol} = ?`);
+      values.push(updates[key]);
+    }
+  }
 
-  if (error) throw new Error(error.message);
+  if (setClauses.length > 0) {
+    values.push(complaintId);
+    db.prepare(`UPDATE complaints SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+  }
+
   return { success: true, isLive: true };
 }
 
-/**
- * Ensure a machine record exists before creating a complaint (FK constraint)
- */
 async function ensureMachineExists(machineId, machineName) {
-  if (!supabase || !machineId) return;
-  try {
-    const { data } = await supabase.from('machines').select('id').eq('id', machineId).single();
-    if (!data) {
-      await supabase.from('machines').insert([{
-        id: machineId,
-        name: machineName || machineId,
-        code: machineId,
-        location: 'Back Cover Line',
-        type: 'Friction Press',
-        status: 'Operational',
-        criticality: 'High'
-      }]);
-    }
-  } catch (_) { /* ignore */ }
+  if (!machineId) return;
+  const exists = db.prepare('SELECT id FROM machines WHERE id = ?').get(machineId);
+  if (!exists) {
+    db.prepare(`
+      INSERT INTO machines (id, name, code, location, type, status, criticality)
+      VALUES (?, ?, ?, 'Back Cover Line', 'Friction Press', 'Operational', 'High')
+    `).run(machineId, machineName || machineId, machineId);
+  }
 }
 
-/**
- * Get KPI statistics for dashboard
- */
 export async function getComplaintStats() {
-  if (!supabase) {
-    return {
-      total: INITIAL_COMPLAINTS.length,
-      open: INITIAL_COMPLAINTS.filter(c => c.status === 'New').length,
-      inProgress: INITIAL_COMPLAINTS.filter(c => ['Assigned','Accepted','Repair Started'].includes(c.status)).length,
-      closed: INITIAL_COMPLAINTS.filter(c => c.status === 'Closed').length
-    };
-  }
-
-  const { data } = await supabase.from('complaints').select('status');
-  if (!data) return { total: 0, open: 0, inProgress: 0, closed: 0 };
-
+  const rows = db.prepare('SELECT status FROM complaints').all();
+  
   return {
-    total: data.length,
-    open: data.filter(c => c.status === 'New').length,
-    inProgress: data.filter(c => ['Assigned','Accepted','Repair Started'].includes(c.status)).length,
-    completed: data.filter(c => c.status === 'Completed').length,
-    closed: data.filter(c => c.status === 'Closed').length,
-    critical: data.filter(c => c.status !== 'Closed').length
+    total: rows.length,
+    open: rows.filter(c => c.status === 'New').length,
+    inProgress: rows.filter(c => ['Assigned', 'Accepted', 'Repair Started'].includes(c.status)).length,
+    completed: rows.filter(c => c.status === 'Completed').length,
+    closed: rows.filter(c => c.status === 'Closed').length,
+    critical: rows.filter(c => c.status !== 'Closed').length
   };
 }

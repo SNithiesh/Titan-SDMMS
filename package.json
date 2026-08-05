@@ -13,10 +13,10 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.0",
     "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.19.0",
     "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
@@ -30,6 +30,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.6.0",
     "vite-plugin-pwa": "^1.3.0",
     "workbox-window": "^7.4.1"

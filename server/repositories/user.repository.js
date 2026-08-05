@@ -1,159 +1,59 @@
-import { supabase } from '../config/database.js';
-import { DEMO_USERS } from '../../src/mockData.js';
+import { db } from '../config/database.js';
 
-/**
- * User Repository — All database queries for the users table
- * Controllers never write SQL directly — they call these functions
- */
-
-/**
- * Find a user by their employee ID (e.g. EMP-7801)
- * Returns the full user record including password_hash
- */
 export async function findUserByEmployeeId(employeeId) {
-  if (!supabase) {
-    // Offline mode: search demo users
-    const user = DEMO_USERS.find(u => u.employeeId?.toUpperCase() === employeeId.toUpperCase());
-    return user || null;
-  }
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('employee_id', employeeId)
-    .single();
-
-  if (error || !data) return null;
-  return data;
+  const user = db.prepare('SELECT * FROM users WHERE employee_id = ?').get(employeeId);
+  return user || null;
 }
 
-/**
- * Get all users (Admin only)
- */
 export async function getAllUsers() {
-  if (!supabase) return DEMO_USERS;
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, employee_id, name, role, department, discipline, created_at, last_login, is_locked')
-    .order('name');
-
-  if (error) throw new Error(error.message);
-  return data;
+  return db.prepare('SELECT id, employee_id, name, role, department, discipline, created_at, last_login, is_locked FROM users ORDER BY name').all();
 }
 
-/**
- * Get all technicians (for supervisor assignment dropdown)
- */
 export async function getAllTechnicians() {
-  if (!supabase) return DEMO_USERS.filter(u => u.role === 'Technician');
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('id, employee_id, name, department, discipline')
-    .eq('role', 'Technician')
-    .order('name');
-
-  if (error) throw new Error(error.message);
-  return data;
+  return db.prepare('SELECT id, employee_id, name, department, discipline FROM users WHERE role = ? ORDER BY name').all('Technician');
 }
 
-/**
- * Update failed login attempt counter
- * If attempts >= 5, lock the account for 30 minutes
- */
 export async function incrementFailedAttempts(employeeId) {
-  if (!supabase) return;
-
-  const { data } = await supabase
-    .from('users')
-    .select('failed_attempts')
-    .eq('employee_id', employeeId)
-    .single();
-
-  const attempts = (data?.failed_attempts || 0) + 1;
+  const user = db.prepare('SELECT failed_attempts FROM users WHERE employee_id = ?').get(employeeId);
+  const attempts = (user?.failed_attempts || 0) + 1;
   const isLocked = attempts >= 5;
   const lockedUntil = isLocked
     ? new Date(Date.now() + 30 * 60 * 1000).toISOString()
     : null;
 
-  await supabase
-    .from('users')
-    .update({
-      failed_attempts: attempts,
-      is_locked: isLocked,
-      locked_until: lockedUntil
-    })
-    .eq('employee_id', employeeId);
+  db.prepare(`
+    UPDATE users 
+    SET failed_attempts = ?, is_locked = ?, locked_until = ?
+    WHERE employee_id = ?
+  `).run(attempts, isLocked ? 1 : 0, lockedUntil, employeeId);
 
   return { attempts, isLocked };
 }
 
-/**
- * Reset failed attempts after successful login
- */
 export async function resetFailedAttempts(employeeId) {
-  if (!supabase) return;
-
-  await supabase
-    .from('users')
-    .update({
-      failed_attempts: 0,
-      is_locked: false,
-      locked_until: null,
-      last_login: new Date().toISOString()
-    })
-    .eq('employee_id', employeeId);
+  db.prepare(`
+    UPDATE users
+    SET failed_attempts = 0, is_locked = 0, locked_until = NULL, last_login = ?
+    WHERE employee_id = ?
+  `).run(new Date().toISOString(), employeeId);
 }
 
-/**
- * Record a login attempt in login_history table
- */
 export async function recordLoginHistory({ employeeId, success, ipAddress, userAgent, failureReason }) {
-  if (!supabase) return;
-
-  await supabase.from('login_history').insert([{
-    employee_id: employeeId,
-    success,
-    ip_address: ipAddress,
-    user_agent: userAgent,
-    failure_reason: failureReason || null
-  }]);
+  db.prepare(`
+    INSERT INTO login_history (employee_id, success, ip_address, user_agent, failure_reason)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(employeeId, success ? 1 : 0, ipAddress, userAgent, failureReason || null);
 }
 
-/**
- * Create a new user (Admin only)
- */
 export async function createUser({ employeeId, name, role, department, discipline, passwordHash }) {
-  if (!supabase) throw new Error('Database not connected');
+  const result = db.prepare(`
+    INSERT INTO users (employee_id, name, role, department, discipline, password_hash)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(employeeId, name, role, department, discipline, passwordHash);
 
-  const { data, error } = await supabase
-    .from('users')
-    .insert([{
-      employee_id: employeeId,
-      name,
-      role,
-      department,
-      discipline,
-      password_hash: passwordHash
-    }])
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data;
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 }
 
-/**
- * Update user password hash (Admin reset)
- */
 export async function updateUserPassword(employeeId, passwordHash) {
-  if (!supabase) throw new Error('Database not connected');
-
-  const { error } = await supabase
-    .from('users')
-    .update({ password_hash: passwordHash })
-    .eq('employee_id', employeeId);
-
-  if (error) throw new Error(error.message);
+  db.prepare('UPDATE users SET password_hash = ? WHERE employee_id = ?').run(passwordHash, employeeId);
 }

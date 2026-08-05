@@ -76,6 +76,8 @@ export async function submitComplaint(req, res, next) {
       ipAddress: req.ip
     });
 
+    req.app.get('io')?.emit('complaint_updated', { eventType: 'INSERT', new: result.data });
+
     return successResponse(res, { complaint: result.data || newComplaint }, 'Breakdown complaint submitted successfully', 201);
   } catch (err) {
     next(err);
@@ -109,6 +111,8 @@ export async function assignTechnician(req, res, next) {
       ipAddress: req.ip
     });
 
+    req.app.get('io')?.emit('complaint_updated', { eventType: 'UPDATE' });
+
     return successResponse(res, { complaintId: id, assignedTo: technicianId || technicianName }, 'Technician assigned successfully');
   } catch (err) {
     next(err);
@@ -129,6 +133,7 @@ export async function acceptJob(req, res, next) {
     });
 
     await writeAuditLog({ userEmployeeId: req.user.employeeId, action: 'JOB_ACCEPTED', entityType: 'complaint', entityId: id, ipAddress: req.ip });
+    req.app.get('io')?.emit('complaint_updated', { eventType: 'UPDATE' });
     return successResponse(res, { complaintId: id }, 'Job accepted');
   } catch (err) {
     next(err);
@@ -149,6 +154,7 @@ export async function startRepair(req, res, next) {
     });
 
     await writeAuditLog({ userEmployeeId: req.user.employeeId, action: 'REPAIR_STARTED', entityType: 'complaint', entityId: id, ipAddress: req.ip });
+    req.app.get('io')?.emit('complaint_updated', { eventType: 'UPDATE' });
     return successResponse(res, { complaintId: id }, 'Repair started');
   } catch (err) {
     next(err);
@@ -172,6 +178,7 @@ export async function completeRepair(req, res, next) {
     });
 
     await writeAuditLog({ userEmployeeId: req.user.employeeId, action: 'REPAIR_COMPLETED', entityType: 'complaint', entityId: id, ipAddress: req.ip });
+    req.app.get('io')?.emit('complaint_updated', { eventType: 'UPDATE' });
     return successResponse(res, { complaintId: id }, 'Repair marked as completed');
   } catch (err) {
     next(err);
@@ -192,6 +199,7 @@ export async function verifyAndClose(req, res, next) {
     });
 
     await writeAuditLog({ userEmployeeId: req.user.employeeId, action: 'JOB_VERIFIED_CLOSED', entityType: 'complaint', entityId: id, ipAddress: req.ip });
+    req.app.get('io')?.emit('complaint_updated', { eventType: 'UPDATE' });
     return successResponse(res, { complaintId: id }, 'Job verified and closed');
   } catch (err) {
     next(err);

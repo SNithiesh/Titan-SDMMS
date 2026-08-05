@@ -1,32 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
+import { io } from 'socket.io-client';
+import apiClient from '../api/apiClient.js';
 
-// Replace these two variables with your actual Supabase Project URL and Anon Key
-// from https://supabase.com -> Project Settings -> API
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://YOUR_SUPABASE_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+// The URL is dynamically fetched from apiClient's baseURL, which points to the Express backend.
+// Extract base URL from apiClient to point Socket.IO to the correct backend host/port.
+const backendUrl = apiClient.defaults.baseURL.replace('/api', '');
 
-export const isSupabaseConfigured = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  return Boolean(url && key && !url.includes('YOUR_SUPABASE_PROJECT_ID'));
-};
+export const isSupabaseConfigured = () => true; // Always return true for offline mode to work seamlessly
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let socketInstance = null;
 
-/**
- * Real-time subscription for live complaint updates across all devices
- * Frontend subscribes directly to Supabase (read-only anon key — safe)
- * All writes go through the secure Express backend
- */
 export function subscribeToRealtimeComplaints(onChangeCallback) {
-  if (!isSupabaseConfigured()) return () => {};
+  if (!socketInstance) {
+    socketInstance = io(backendUrl, {
+      transports: ['websocket', 'polling']
+    });
+  }
 
-  const subscription = supabase
-    .channel('public:complaints')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, (payload) => {
-      onChangeCallback(payload);
-    })
-    .subscribe();
+  const listener = (payload) => {
+    // payload is { eventType: 'INSERT'|'UPDATE', new: {...} }
+    onChangeCallback(payload);
+  };
 
-  return () => { supabase.removeChannel(subscription); };
+  socketInstance.on('complaint_updated', listener);
+
+  return () => {
+    socketInstance.off('complaint_updated', listener);
+  };
 }
