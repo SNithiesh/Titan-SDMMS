@@ -1,7 +1,6 @@
 import {
   getAllComplaints,
   getComplaintsByOperator,
-  getComplaintsByTechnician,
   createComplaint,
   updateComplaint,
   getComplaintStats
@@ -48,7 +47,8 @@ export async function submitComplaint(req, res, next) {
       return errorResponse(res, 'Machine and fault type are required.', 400, 'MISSING_FIELDS');
     }
 
-    const complaintId = `CMP-${Date.now().toString().slice(-6)}`;
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const complaintId = `CMP-${Date.now()}-${randomSuffix}`;
 
     const newComplaint = {
       id: complaintId,

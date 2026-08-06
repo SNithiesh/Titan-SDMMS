@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { INITIAL_COMPLAINTS } from './mockData';
 import LoginModal from './components/LoginModal';
-// InstallPromptBar removed
 import ComplaintForm from './components/ComplaintForm';
 import LiveTimeline from './components/LiveTimeline';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import HistoryView from './components/HistoryView';
-import { Wrench, Shield, User, BarChart3, LogOut, Activity, History, Database, Sun, Moon, Clock } from 'lucide-react';
+import { Wrench, Shield, User, BarChart3, LogOut, Activity, History, Database, Sun, Moon, Clock, Download, CheckCircle2 } from 'lucide-react';
 import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import { fetchComplaints, createComplaint, assignTechnician, acceptJob, startRepair, completeRepair, verifyAndClose } from './api/complaint.api.js';
-import { subscribeToRealtimeComplaints } from './services/supabaseClient.js';
+import { subscribeToRealtimeComplaints } from './services/realtimeClient.js';
 import { requestNotificationPermission, sendAlertNotification } from './services/notificationService';
 
 function LiveClock() {
@@ -45,6 +44,34 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('raise');
   const [selectedComplaintId, setSelectedComplaintId] = useState(complaints[0]?.id || '');
   const [recentNotification, setRecentNotification] = useState(null);
+
+  // ── PWA INSTALL PROMPT ──
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(
+    window.matchMedia('(display-mode: standalone)').matches
+  );
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setDeferredInstallPrompt(e); };
+    const installedHandler = () => setIsAppInstalled(true);
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', installedHandler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
+    };
+  }, []);
+  const handleInstallApp = async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') setIsAppInstalled(true);
+      setDeferredInstallPrompt(null);
+    } else {
+      // Show manual install guide for iOS / non-prompt browsers
+      setShowInstallGuide(true);
+    }
+  };
 
   // When user logs in, set correct default role
   useEffect(() => {
@@ -128,7 +155,7 @@ export default function App() {
   };
 
   const handleUpdateStatus = async (complaintId, updatedFields) => {
-    setComplaints(prev => prev.map(c => c.id === complaintId ? { ...c, ...updatedFields } : c));
+    setComplaints(prev => prev?.map(c => c.id === complaintId ? { ...c, ...updatedFields } : c));
     try {
       const { status } = updatedFields;
       if (status === 'Assigned') await assignTechnician(complaintId, updatedFields.assignedTechnician, updatedFields.assignedTechnician);
@@ -187,6 +214,42 @@ export default function App() {
         </div>
       )}
 
+      {/* ── PWA INSTALL GUIDE MODAL ── */}
+      {showInstallGuide && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowInstallGuide(false)}>
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] w-full max-w-sm shadow-2xl rounded-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-strong)]">
+              <div className="flex items-center gap-2">
+                <Download className="w-4 h-4 text-[var(--status-info)]" />
+                <span className="text-sm font-bold uppercase tracking-wide">Install TITAN SDMMS</span>
+              </div>
+              <button onClick={() => setShowInstallGuide(false)} className="text-[var(--text-secondary)] hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div className="p-4 space-y-4 text-xs">
+              <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 rounded-sm">
+                <p className="font-bold text-[var(--status-info)] mb-1">📱 Android (Chrome)</p>
+                <p className="text-[var(--text-secondary)]">Tap the <span className="font-bold text-white">⋮ menu</span> in the top-right corner → <span className="font-bold text-white">"Add to Home screen"</span> → Tap <span className="font-bold text-white">"Install"</span></p>
+              </div>
+              <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 rounded-sm">
+                <p className="font-bold text-[var(--status-warning)] mb-1">🍎 iPhone / iPad (Safari)</p>
+                <p className="text-[var(--text-secondary)]">Tap the <span className="font-bold text-white">Share button (□↑)</span> at the bottom → Scroll down → Tap <span className="font-bold text-white">"Add to Home Screen"</span></p>
+              </div>
+              <div className="bg-[var(--bg-app)] border border-[var(--border-strong)] p-3 rounded-sm">
+                <p className="font-bold text-[var(--status-ok)] mb-1">💻 Desktop (Chrome / Edge)</p>
+                <p className="text-[var(--text-secondary)]">Look for the <span className="font-bold text-white">install icon (⊕)</span> in the browser address bar on the right side → Click it → Click <span className="font-bold text-white">"Install"</span></p>
+              </div>
+              <p className="text-[var(--text-muted)] text-center text-[10px]">Once installed, the app works offline and opens without a browser!</p>
+            </div>
+            <div className="px-4 pb-4">
+              <button onClick={() => setShowInstallGuide(false)} className="w-full py-2 bg-[var(--status-info)] text-white text-xs font-bold rounded-sm hover:opacity-90">
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* ── LEFT SIDEBAR (Strict Industrial Layout) ── */}
       <aside className="w-60 bg-[var(--bg-panel)] border-r border-[var(--border-strong)] flex flex-col hidden md:flex shrink-0">
         <div className="h-12 flex items-center px-4 border-b border-[var(--border-strong)] bg-[var(--bg-panel)]">
@@ -199,7 +262,7 @@ export default function App() {
         </div>
         
         <nav className="flex-1 px-2 space-y-0.5">
-          {navItems.map((item) => {
+          {navItems?.map((item) => {
             const isSelected = currentRole === item.id;
             return (
               <button
@@ -247,9 +310,24 @@ export default function App() {
             </span>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <LiveClock />
-            <button 
+            {/* PWA Install Button — always visible */}
+            {isAppInstalled ? (
+              <span className="flex items-center gap-1 text-[10px] text-[var(--status-ok)] font-bold">
+                <CheckCircle2 className="w-3 h-3" /> App Installed
+              </span>
+            ) : (
+              <button
+                onClick={handleInstallApp}
+                title="Install TITAN SDMMS as an App"
+                className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold bg-[var(--status-info)] text-white hover:opacity-90 border border-[var(--status-info)] rounded-sm transition-opacity animate-pulse"
+              >
+                <Download className="w-3 h-3" />
+                <span className="hidden sm:inline">Install App</span>
+              </button>
+            )}
+            <button
               onClick={toggleTheme}
               className="flex items-center justify-center p-1.5 rounded-sm bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--status-info)]"
               title="Toggle Theme"
@@ -280,7 +358,7 @@ export default function App() {
                   onClick={() => setActiveTab('active')}
                   className={`px-4 py-1.5 text-xs font-bold transition-none ${activeTab === 'active' ? 'bg-[var(--status-info)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--border-subtle)]'}`}
                 >
-                  Active Requests [{complaints.filter(c => c.status !== 'Closed').length}]
+                  Active Requests [{complaints?.filter(c => c.status !== 'Closed').length}]
                 </button>
               </div>
 
@@ -303,7 +381,7 @@ export default function App() {
               ) : (
                 <div className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-strong)] flex flex-col h-full min-h-0">
                   <div className="border-b border-[var(--border-strong)] bg-[var(--bg-panel)] p-2 flex gap-1 overflow-x-auto no-scrollbar">
-                    {complaints.filter(c => c.status !== 'Closed').map(c => (
+                    {complaints?.filter(c => c.status !== 'Closed').map(c => (
                       <button
                         key={c.id}
                         onClick={() => setSelectedComplaintId(c.id)}
@@ -352,7 +430,7 @@ export default function App() {
       {/* Mobile-only bottom nav for switching tabs if allowed */}
       {(currentUser.role === 'Supervisor' || currentUser.role === 'Admin') && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-panel)] border-t border-[var(--border-strong)] flex text-[10px] z-50 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.5)]">
-          {navItems.map((item) => (
+          {navItems?.map((item) => (
             <button
               key={item.id}
               onClick={() => setCurrentRole(item.id)}

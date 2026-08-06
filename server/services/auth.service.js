@@ -1,4 +1,4 @@
-import { comparePassword, hashPassword } from '../utils/passwordHelper.js';
+import { comparePassword } from '../utils/passwordHelper.js';
 import { signAccessToken, signRefreshToken } from '../utils/jwtHelper.js';
 import {
   findUserByEmployeeId,
@@ -6,7 +6,7 @@ import {
   resetFailedAttempts,
   recordLoginHistory
 } from '../repositories/user.repository.js';
-import { DEMO_USERS } from '../../src/mockData.js';
+
 
 /**
  * Auth Service — Business logic for authentication

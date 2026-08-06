@@ -69,6 +69,16 @@ function initializeDatabase() {
       parts_changed TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_employee_id TEXT,
+      action TEXT,
+      entity_type TEXT,
+      entity_id TEXT,
+      ip_address TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS login_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT,
@@ -96,8 +106,8 @@ function initializeDatabase() {
           role: u.role,
           department: u.department || null,
           discipline: u.discipline || null,
-          // If mockData lacks a hash, use a dummy bcrypt hash of '12345'
-          passwordHash: u.password_hash || '$2a$10$wT8h5.tL6cM8J/n02j2zO.gNq/sT8H7N4jF5kQ8zB6pL3rQvM0BWW' 
+          // If mockData lacks a hash, use the bcrypt hash for '123'
+          passwordHash: u.password_hash || '$2b$10$o79EEIYyJBrmzNpTbiu04u5rbCodc4U4rwcAjqPgH9ijePuLwfelW' 
         });
       }
     });

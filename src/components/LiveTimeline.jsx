@@ -26,7 +26,7 @@ export default function LiveTimeline({ complaint }) {
 
   return (
     <div className="flex flex-col p-2">
-      {STAGES.map((stage, index) => {
+      {STAGES?.map((stage, index) => {
         const timeVal = complaint[stage.timeKey];
         const isCompleted = !!timeVal;
         

@@ -15,6 +15,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
     description: ''
   });
   const [status, setStatus] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const [machineSearch, setMachineSearch] = useState('');
   const [faultSearch, setFaultSearch] = useState('');
@@ -48,7 +49,11 @@ export default function ComplaintForm({ onSubmitSuccess }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.machineId || !formData.faultName) return;
+    setErrorMsg('');
+    if (!formData.machineId || !formData.categoryId || !formData.faultName) {
+      setErrorMsg('Please select a machine, category, and fault.');
+      return;
+    }
 
     const machine = MACHINES.find((m) => m.id === formData.machineId);
     const category = FAULT_CATEGORIES.find((c) => c.id === machine?.categoryId);
@@ -97,6 +102,11 @@ export default function ComplaintForm({ onSubmitSuccess }) {
             <CheckCircle2 className="w-3 h-3" /> Request Submitted
           </span>
         )}
+        {errorMsg && (
+          <span className="flex items-center gap-1 text-[10px] text-[#E81123] font-bold uppercase bg-[#E81123]/10 px-2 py-0.5 border border-[#E81123]">
+            <X className="w-3 h-3" /> {errorMsg}
+          </span>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 pb-16 md:pb-4 flex flex-col gap-4">
@@ -119,7 +129,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                 className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
               >
                 <option value="">-- Select Machine/Asset --</option>
-                {availableMachines.map((m) => (
+                {availableMachines?.map((m) => (
                   <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
                 ))}
               </select>
@@ -155,7 +165,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
               className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none"
             >
               <option value="">-- Select Category --</option>
-              {FAULT_CATEGORIES.map((c) => (
+              {FAULT_CATEGORIES?.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -177,7 +187,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                 className="w-full p-2 bg-[var(--bg-panel)] border border-[var(--border-strong)] text-[var(--text-primary)] text-xs focus:border-[var(--status-info)] outline-none disabled:opacity-50"
               >
                 <option value="">-- Standard Selection (All Faults) --</option>
-                {availableFaults.map((f) => (
+                {availableFaults?.map((f) => (
                   <option key={f.id} value={f.name}>{f.name}</option>
                 ))}
               </select>

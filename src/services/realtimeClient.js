@@ -5,8 +5,6 @@ import apiClient from '../api/apiClient.js';
 // Extract base URL from apiClient to point Socket.IO to the correct backend host/port.
 const backendUrl = apiClient.defaults.baseURL.replace('/api', '');
 
-export const isSupabaseConfigured = () => true; // Always return true for offline mode to work seamlessly
-
 let socketInstance = null;
 
 export function subscribeToRealtimeComplaints(onChangeCallback) {

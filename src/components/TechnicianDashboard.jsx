@@ -12,7 +12,7 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
   const [expandedRowId, setExpandedRowId] = useState(null);
 
   // Filter active tasks for this technician
-  const myTasks = complaints.filter(
+  const myTasks = complaints?.filter(
     (c) => c.status !== 'Closed' && (c.assignedTechnician === currentUser?.name || c.status === 'Open')
   );
 
@@ -39,10 +39,9 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
 
     return (
       <div className="flex items-center justify-center gap-1">
-        {steps.map((step, index) => {
+        {steps?.map((step, index) => {
           const isCompleted = index < currentIndex;
           const isActive = index === currentIndex;
-          const isPending = index > currentIndex;
 
           let colorClass = 'bg-[var(--text-muted)] opacity-20';
           if (isCompleted) colorClass = 'bg-[#107C10]';
@@ -161,7 +160,7 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
                   </td>
                 </tr>
               ) : (
-                myTasks.map((task) => {
+                myTasks?.map((task) => {
                   const activeMinutes = task.createdTime ? Math.round((new Date() - new Date(task.createdTime)) / 60000) : 0;
                   const isSlaBreached = activeMinutes > 60 && task.status !== 'Completed';
                   const isExpanded = expandedRowId === task.id;
@@ -319,7 +318,7 @@ export default function TechnicianDashboard({ complaints, onUpdateStatus }) {
                       Smart Suggestions (Tap to Auto-fill)
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {quickActions.map(action => (
+                      {quickActions?.map(action => (
                         <button
                           key={action}
                           type="button"

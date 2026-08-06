@@ -38,3 +38,8 @@ Thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+
+# SQLite database (contains production data — never commit!)
+database/*.sqlite
+database/*.sqlite-wal
+database/*.sqlite-shm

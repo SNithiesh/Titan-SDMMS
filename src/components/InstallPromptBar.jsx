@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Monitor, Smartphone, CheckCircle, SmartphoneNfc } from 'lucide-react';
+import { Download, Monitor, Smartphone } from 'lucide-react';
 
 export default function InstallPromptBar() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);

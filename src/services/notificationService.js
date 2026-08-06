@@ -60,7 +60,7 @@ export function playAlertSound(isCritical = false) {
 /**
  * Trigger real-time browser push notification and audio chime
  */
-export function sendAlertNotification({ title, message, priority = 'High', targetRoles = [] }) {
+export function sendAlertNotification({ title, message, priority = 'High' }) {
   // 1. Play alert sound chime
   playAlertSound(priority === 'Critical');
 

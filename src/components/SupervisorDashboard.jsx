@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { Shield, AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2 } from 'lucide-react';
 import { TECHNICIANS } from '../mockData';
 
 export default function SupervisorDashboard({ complaints, onAssignTechnician, onVerifyComplaint }) {
   const [filter, setFilter] = useState('All');
 
   // KPI Calculations
-  const activeFaults = complaints.filter(c => c.status !== 'Closed').length;
-  const unassignedFaults = complaints.filter(c => c.status === 'New').length;
-  const criticalFaults = complaints.filter(c => c.status !== 'Closed' && c.priority === 'Critical').length;
-  const completedPendingVerification = complaints.filter(c => c.status === 'Completed').length;
+  const activeFaults = complaints?.filter(c => c.status !== 'Closed').length;
+  const unassignedFaults = complaints?.filter(c => c.status === 'New').length;
+  const criticalFaults = complaints?.filter(c => c.status !== 'Closed' && c.priority === 'Critical').length;
+  const completedPendingVerification = complaints?.filter(c => c.status === 'Completed').length;
 
-  const filteredComplaints = complaints.filter(c => {
+  const filteredComplaints = complaints?.filter(c => {
     if (filter === 'All') return c.status !== 'Closed';
     if (filter === 'Unassigned') return c.status === 'New';
     if (filter === 'Pending Review') return c.status === 'Completed';
@@ -97,7 +97,7 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
                   <td colSpan="6" className="p-8 text-center text-xs text-[var(--text-muted)]">No records match current filter.</td>
                 </tr>
               ) : (
-                filteredComplaints.map(c => (
+                filteredComplaints?.map(c => (
                   <tr key={c.id} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-panel-hover)] transition-none">
                     <td className="py-2 px-3 text-xs font-mono text-[var(--text-secondary)]">{c.id}</td>
                     <td className="py-2 px-3 text-xs font-bold text-[var(--text-primary)]">{c.machineName}</td>
@@ -115,7 +115,7 @@ export default function SupervisorDashboard({ complaints, onAssignTechnician, on
                             value={c.assignedTechnician && c.assignedTechnician !== 'Unassigned' ? c.assignedTechnician : ""}
                           >
                             <option value="" disabled>Assign Tech...</option>
-                            {TECHNICIANS.map(t => (
+                            {TECHNICIANS?.map(t => (
                               <option key={t.id} value={t.name}>{t.name} - {t.role}</option>
                             ))}
                           </select>

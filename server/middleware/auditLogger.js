@@ -1,4 +1,4 @@
-import { supabase } from '../config/database.js';
+import { db } from '../config/database.js';
 
 /**
  * Audit Logger Middleware
@@ -33,19 +33,12 @@ export function auditLogger(action, entityType) {
   };
 }
 
-/**
- * Write a single audit log entry to Supabase
- */
 export async function writeAuditLog({ userEmployeeId, action, entityType, entityId, ipAddress }) {
-  if (!supabase) return;
   try {
-    await supabase.from('audit_logs').insert([{
-      user_employee_id: userEmployeeId,
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      ip_address: ipAddress
-    }]);
+    db.prepare(`
+      INSERT INTO audit_logs (user_employee_id, action, entity_type, entity_id, ip_address)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userEmployeeId, action, entityType, entityId, ipAddress);
   } catch (err) {
     console.warn('[AUDIT] Failed to write audit log:', err.message);
   }

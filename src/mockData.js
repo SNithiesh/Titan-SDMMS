@@ -4,7 +4,11 @@ export const DEMO_USERS = [
   { id: 'usr3', employeeId: 'EMP-3910', name: 'Karthik M', role: 'Technician', discipline: 'Electrical Maintenance', department: 'Maintenance', password: '123', shift: 'Shift A' },
   { id: 'usr4', employeeId: 'EMP-2201', name: 'Vikram R', role: 'Technician', discipline: 'Automation Engineer', department: 'Automation', password: '123', shift: 'Shift A' },
   { id: 'usr5', employeeId: 'EMP-1001', name: 'Dinesh Kumar', role: 'Supervisor', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
-  { id: 'usr6', employeeId: 'EMP-0001', name: 'System Admin', role: 'Admin', department: 'IT / Plant Admin', password: '123', shift: 'General' }
+  { id: 'usr6', employeeId: 'EMP-0001', name: 'System Admin', role: 'Admin', department: 'IT / Plant Admin', password: '123', shift: 'General' },
+  { id: 'usr7', employeeId: 'EMP-4403', name: 'Ramesh Kumar', role: 'Operator', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
+  { id: 'usr8', employeeId: 'EMP-3911', name: 'Anil Sharma', role: 'Operator', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
+  { id: 'usr9', employeeId: 'EMP-5104', name: 'Priya Nair', role: 'Operator', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
+  { id: 'usr10', employeeId: 'EMP-9999', name: 'Mahesh P', role: 'Technician', discipline: 'Mechanical Maintenance', department: 'Maintenance', password: '123', shift: 'Shift A' }
 ];
 
 export const MACHINES = [
@@ -175,7 +179,7 @@ export const INITIAL_COMPLAINTS = [
     machineId: 'M-6050005',
     machineName: 'Hydraulic Press 6050005',
     operatorName: 'Ramesh Kumar',
-    employeeId: 'EMP-4402',
+    employeeId: 'EMP-4403',
     department: 'Back Cover Dept',
     shift: 'Shift A',
     categoryId: 'mechanical',
@@ -200,7 +204,7 @@ export const INITIAL_COMPLAINTS = [
     machineId: 'M-6036004',
     machineName: 'Friction Press 6036004',
     operatorName: 'Anil Sharma',
-    employeeId: 'EMP-3910',
+    employeeId: 'EMP-3911',
     department: 'Back Cover Dept',
     shift: 'Shift A',
     categoryId: 'mechanical',

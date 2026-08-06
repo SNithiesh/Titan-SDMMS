@@ -16,21 +16,27 @@ app.use(helmet({
 }));
 
 // ── CORS ───────────────────────────────────────────────────────
-// Allow requests from the Vite dev server and production frontend
-const allowedOrigins = [
-  'http://localhost:5173',   // Vite dev server
-  'http://localhost:5174',   // Vite dev server fallback
-  'http://localhost:5175',   // Vite dev server fallback
-  'http://localhost:5000',   // Production preview
-  'http://localhost:4173',   // Vite preview
-  process.env.FRONTEND_URL  // Production URL (set in .env)
-].filter(Boolean);
+// Allow localhost + any device on the same local network (Wi-Fi, hotspot, LAN)
+function isLocalNetworkOrigin(origin) {
+  if (!origin) return true; // No origin = mobile app / Postman, allow
+  try {
+    const { hostname } = new URL(origin);
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    // Allow any private network IP range
+    if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true; // Home/office Wi-Fi
+    if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true;  // Corporate / hotspot
+    if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname)) return true; // Class B private
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isLocalNetworkOrigin(origin)) return callback(null, true);
+    // Also allow explicit production URL from .env
+    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) return callback(null, true);
     callback(new Error(`CORS: Origin ${origin} not allowed`));
   },
   credentials: true
