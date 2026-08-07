@@ -22,38 +22,78 @@ export async function requestNotificationPermission() {
   return false;
 }
 
-// Play an emergency audio alert chime for plant floor technicians
-export function playAlertSound(isCritical = false) {
+let audioCtx = null;
+let currentOsc1 = null;
+let currentOsc2 = null;
+let currentGain = null;
+let alarmInterval = null;
+
+// Initialize audio context only on first user interaction
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+export function startAlarm(isCritical = false) {
+  // Prevent multiple alarms from stacking
+  stopAlarm();
+
   try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioContext();
     
-    // Create dual oscillator for industrial alarm tone
-    const osc1 = audioCtx.createOscillator();
-    const osc2 = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const playBeep = () => {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    osc1.type = isCritical ? 'sawtooth' : 'sine';
-    osc2.type = 'square';
+      currentOsc1 = osc1;
+      currentOsc2 = osc2;
+      currentGain = gain;
 
-    const baseFreq = isCritical ? 880 : 660; // A5 vs E5
-    osc1.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
-    osc2.frequency.setValueAtTime(baseFreq * 1.5, audioCtx.currentTime);
+      osc1.type = isCritical ? 'sawtooth' : 'sine';
+      osc2.type = 'square';
 
-    // Beep modulation for emergency alert
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+      const baseFreq = isCritical ? 880 : 660;
+      osc1.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+      osc2.frequency.setValueAtTime(baseFreq * 1.5, ctx.currentTime);
 
-    osc1.connect(gain);
-    osc2.connect(gain);
-    gain.connect(audioCtx.destination);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
 
-    osc1.start();
-    osc2.start();
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
 
-    osc1.stop(audioCtx.currentTime + 0.6);
-    osc2.stop(audioCtx.currentTime + 0.6);
+      osc1.start();
+      osc2.start();
+
+      osc1.stop(ctx.currentTime + 0.6);
+      osc2.stop(ctx.currentTime + 0.6);
+    };
+
+    // Play immediately, then loop
+    playBeep();
+    alarmInterval = setInterval(playBeep, isCritical ? 800 : 1500);
+
   } catch (err) {
     console.warn('Audio alert playback restricted by browser policy:', err);
+  }
+}
+
+export function stopAlarm() {
+  if (alarmInterval) {
+    clearInterval(alarmInterval);
+    alarmInterval = null;
+  }
+  if (currentGain) {
+    try {
+      currentGain.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.1);
+    } catch(e) {}
   }
 }
 
@@ -61,18 +101,18 @@ export function playAlertSound(isCritical = false) {
  * Trigger real-time browser push notification and audio chime
  */
 export function sendAlertNotification({ title, message, priority = 'High' }) {
-  // 1. Play alert sound chime
-  playAlertSound(priority === 'Critical');
+  // 1. Play alert sound chime (loops until acknowledged)
+  startAlarm(priority === 'Critical');
 
   // 2. Trigger native OS / Phone Push Notification
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
       const options = {
         body: message,
-        icon: '/favicon.svg',
-        badge: '/favicon.svg',
+        icon: '/titan-logo.jpg',
+        badge: '/titan-logo.jpg',
         vibrate: priority === 'Critical' ? [300, 100, 300, 100, 400] : [200, 100, 200],
-        tag: 'titan-breakdown-alert',
+        tag: `titan-alert-${Date.now()}`, // unique tag so it doesn't overwrite
         requireInteraction: priority === 'Critical'
       };
 

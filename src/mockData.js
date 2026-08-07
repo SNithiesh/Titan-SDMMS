@@ -8,7 +8,9 @@ export const DEMO_USERS = [
   { id: 'usr7', employeeId: 'EMP-4403', name: 'Ramesh Kumar', role: 'Operator', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
   { id: 'usr8', employeeId: 'EMP-3911', name: 'Anil Sharma', role: 'Operator', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
   { id: 'usr9', employeeId: 'EMP-5104', name: 'Priya Nair', role: 'Operator', department: 'Back Cover Dept', password: '123', shift: 'Shift A' },
-  { id: 'usr10', employeeId: 'EMP-9999', name: 'Mahesh P', role: 'Technician', discipline: 'Mechanical Maintenance', department: 'Maintenance', password: '123', shift: 'Shift A' }
+  { id: 'usr10', employeeId: 'EMP-9999', name: 'Mahesh P', role: 'Technician', discipline: 'Mechanical Maintenance', department: 'Maintenance', password: '123', shift: 'Shift A' },
+  { id: 'usr11', employeeId: 'EMP-1000', name: 'Kumaravel ', role: 'Supervisor', discipline: 'Maintenance Manager', department: 'Maintenance', password: '123', shift: 'Shift A' }
+
 ];
 
 export const MACHINES = [

@@ -6,13 +6,15 @@ import LiveTimeline from './components/LiveTimeline';
 import TechnicianDashboard from './components/TechnicianDashboard';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import AdminLayout from './components/admin/AdminLayout';
 import HistoryView from './components/HistoryView';
-import { Wrench, Shield, User, BarChart3, LogOut, Activity, History, Database, Sun, Moon, Clock, Download, CheckCircle2 } from 'lucide-react';
+import { Wrench, Shield, User, BarChart3, LogOut, Activity, History, Database, Sun, Moon, Clock, Download, CheckCircle2, Users, Settings } from 'lucide-react';
 import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import { fetchComplaints, createComplaint, assignTechnician, acceptJob, startRepair, completeRepair, verifyAndClose } from './api/complaint.api.js';
-import { subscribeToRealtimeComplaints } from './services/realtimeClient.js';
+import { initRealtimeClient, subscribeToRealtimeComplaints } from './services/realtimeClient.js';
 import { requestNotificationPermission, sendAlertNotification } from './services/notificationService';
+import NotificationCenter from './components/NotificationCenter';
 
 function LiveClock() {
   const [time, setTime] = useState(new Date());
@@ -80,6 +82,7 @@ export default function App() {
       else if (currentUser.role === 'Supervisor' || currentUser.role === 'Admin') setCurrentRole('Supervisor');
       else setCurrentRole('Operator');
       requestNotificationPermission();
+      initRealtimeClient(currentUser.role);
     }
   }, [currentUser]);
 
@@ -201,6 +204,10 @@ export default function App() {
       { id: 'History', label: 'Audit Log', icon: History },
       { id: 'Analytics', label: 'Plant Analytics', icon: BarChart3 }
     );
+    
+    if (currentUser.role === 'Admin') {
+      navItems.push({ id: 'ERP', label: 'ERP Administration', icon: Settings });
+    }
   }
 
   return (
@@ -327,6 +334,12 @@ export default function App() {
                 <span className="hidden sm:inline">Install App</span>
               </button>
             )}
+            
+            {/* Notification Center (For Supervisors/Admins only) */}
+            {(currentRole === 'Supervisor' || currentRole === 'Admin') && (
+              <NotificationCenter />
+            )}
+
             <button
               onClick={toggleTheme}
               className="flex items-center justify-center p-1.5 rounded-sm bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--status-info)]"
@@ -344,7 +357,7 @@ export default function App() {
         </header>
 
         {/* Dynamic Workspace Content */}
-        <main className="flex-1 overflow-auto p-4 bg-[var(--bg-app)]">
+        <main className={`flex-1 overflow-auto bg-[var(--bg-app)] ${currentRole !== 'ERP' ? 'p-4' : ''}`}>
           {currentRole === 'Operator' && (
             <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col pb-16 md:pb-0">
               <div className="flex items-center gap-2 bg-[var(--bg-panel)] p-1.5 border border-[var(--border-strong)] overflow-x-auto whitespace-nowrap">
@@ -408,6 +421,7 @@ export default function App() {
           {currentRole === 'Supervisor' && <SupervisorDashboard complaints={complaints} onAssignTechnician={handleAssignTechnician} onVerifyComplaint={handleVerifyComplaint} />}
           {currentRole === 'History' && <HistoryView complaints={complaints} />}
           {currentRole === 'Analytics' && <AnalyticsDashboard complaints={complaints} />}
+          {currentRole === 'ERP' && <AdminLayout currentUser={currentUser} />}
         </main>
 
         {/* ── BOTTOM STATUS BAR ── */}

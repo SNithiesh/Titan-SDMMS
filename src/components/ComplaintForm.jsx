@@ -27,24 +27,22 @@ export default function ComplaintForm({ onSubmitSuccess }) {
   const selectedCategoryData = FAULT_CATEGORIES.find(c => c.id === formData.categoryId);
   const availableFaults = selectedCategoryData ? selectedCategoryData.faults : [];
 
-  const handleMachineSearch = () => {
-    if (!machineSearch) return;
-    const match = availableMachines.find(m => m.name.toLowerCase().includes(machineSearch.toLowerCase()) || m.code.toLowerCase().includes(machineSearch.toLowerCase()));
-    if (match) {
-      setFormData({ ...formData, machineId: match.id });
-    } else {
-      alert("No machine found matching: " + machineSearch);
-    }
+  const filteredMachines = machineSearch 
+    ? availableMachines.filter(m => m.name.toLowerCase().includes(machineSearch.toLowerCase()) || m.code.toLowerCase().includes(machineSearch.toLowerCase()))
+    : [];
+
+  const filteredFaults = faultSearch
+    ? availableFaults.filter(f => f.name.toLowerCase().includes(faultSearch.toLowerCase()))
+    : [];
+
+  const handleSelectMachine = (m) => {
+    setFormData({ ...formData, machineId: m.id, categoryId: m.categoryId || formData.categoryId });
+    setMachineSearch('');
   };
 
-  const handleFaultSearch = () => {
-    if (!faultSearch) return;
-    const match = availableFaults.find(f => f.name.toLowerCase().includes(faultSearch.toLowerCase()));
-    if (match) {
-      setFormData({ ...formData, faultName: match.name });
-    } else {
-      alert("No fault found matching: " + faultSearch);
-    }
+  const handleSelectFault = (f) => {
+    setFormData({ ...formData, faultName: f.name });
+    setFaultSearch('');
   };
 
   const handleSubmit = (e) => {
@@ -134,29 +132,37 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                 ))}
               </select>
               
-              <div className="flex items-center gap-1">
+              <div className="relative">
                 <input 
                   type="text" 
-                  placeholder="Or search by name/code..."
+                  placeholder="Or type to search by name/code..."
                   value={machineSearch}
                   onChange={(e) => setMachineSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleMachineSearch())}
-                  className="flex-1 p-1.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none"
+                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none"
                 />
-                <button 
-                  type="button"
-                  onClick={handleMachineSearch}
-                  disabled={!machineSearch}
-                  className="px-4 py-2 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
-                >
-                  Search
-                </button>
+                {machineSearch && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-auto bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-xl">
+                    {filteredMachines.length > 0 ? (
+                      filteredMachines.map(m => (
+                        <div 
+                          key={m.id} 
+                          onClick={() => handleSelectMachine(m)}
+                          className="p-2 text-[10px] text-[var(--text-primary)] hover:bg-[var(--bg-app)] hover:text-white cursor-pointer border-b border-[var(--border-subtle)] last:border-b-0"
+                        >
+                          <span className="font-bold">{m.name}</span> ({m.code})
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-[10px] text-[var(--text-muted)] italic">No matches found.</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
           <div>
             <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-              Asset Category <span className="text-[#E81123]">*</span>
+              Breakdown Category <span className="text-[#E81123]">*</span>
             </label>
             <select
               required
@@ -192,24 +198,32 @@ export default function ComplaintForm({ onSubmitSuccess }) {
                 ))}
               </select>
               
-              <div className="flex items-center gap-1">
+              <div className="relative">
                 <input 
                   type="text" 
-                  placeholder="Or search by fault name..."
+                  placeholder="Or type to search by fault name..."
                   value={faultSearch}
                   onChange={(e) => setFaultSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleFaultSearch())}
-                  className="flex-1 p-1.5 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none disabled:opacity-50"
+                  className="w-full p-2 bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] text-[10px] focus:border-[var(--status-info)] outline-none disabled:opacity-50"
                   disabled={!formData.categoryId}
                 />
-                <button 
-                  type="button"
-                  onClick={handleFaultSearch}
-                  disabled={!formData.categoryId || !faultSearch}
-                  className="px-4 py-2 bg-[var(--border-strong)] hover:bg-[var(--text-secondary)] text-white text-[10px] font-bold disabled:opacity-50"
-                >
-                  Search
-                </button>
+                {faultSearch && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-auto bg-[var(--bg-panel)] border border-[var(--border-strong)] shadow-xl">
+                    {filteredFaults.length > 0 ? (
+                      filteredFaults.map(f => (
+                        <div 
+                          key={f.id} 
+                          onClick={() => handleSelectFault(f)}
+                          className="p-2 text-[10px] text-[var(--text-primary)] hover:bg-[var(--bg-app)] hover:text-white cursor-pointer border-b border-[var(--border-subtle)] last:border-b-0"
+                        >
+                          {f.name}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-[10px] text-[var(--text-muted)] italic">No matches found.</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -249,7 +263,7 @@ export default function ComplaintForm({ onSubmitSuccess }) {
         {/* ROW 3 */}
         <div>
           <label className="block text-[11px] font-bold text-[var(--text-secondary)] uppercase mb-1">
-            Detailed Description (Optional)
+            Detailed Description
           </label>
           <textarea
             rows="3"

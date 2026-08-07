@@ -1,27 +1,47 @@
 import { io } from 'socket.io-client';
 import apiClient from '../api/apiClient.js';
 
-// The URL is dynamically fetched from apiClient's baseURL, which points to the Express backend.
-// Extract base URL from apiClient to point Socket.IO to the correct backend host/port.
 const backendUrl = apiClient.defaults.baseURL.replace('/api', '');
 
 let socketInstance = null;
 
-export function subscribeToRealtimeComplaints(onChangeCallback) {
+export function initRealtimeClient(role) {
   if (!socketInstance) {
     socketInstance = io(backendUrl, {
       transports: ['websocket', 'polling']
     });
+    
+    socketInstance.on('connect', () => {
+      // If the user is a Supervisor or Admin, join the supervisors room
+      if (role === 'Supervisor' || role === 'Admin') {
+        socketInstance.emit('join_room', 'supervisors');
+      }
+    });
   }
+  return socketInstance;
+}
 
-  const listener = (payload) => {
-    // payload is { eventType: 'INSERT'|'UPDATE', new: {...} }
-    onChangeCallback(payload);
-  };
+export function subscribeToRealtimeComplaints(onChangeCallback) {
+  if (!socketInstance) return () => {};
 
+  const listener = (payload) => onChangeCallback(payload);
   socketInstance.on('complaint_updated', listener);
 
   return () => {
     socketInstance.off('complaint_updated', listener);
+  };
+}
+
+export function subscribeToNotifications(onNewNotification, onNotificationsRead) {
+  if (!socketInstance) return () => {};
+
+  socketInstance.on('new_notification', onNewNotification);
+  socketInstance.on('notification_read', onNotificationsRead);
+  socketInstance.on('all_notifications_read', onNotificationsRead);
+
+  return () => {
+    socketInstance.off('new_notification', onNewNotification);
+    socketInstance.off('notification_read', onNotificationsRead);
+    socketInstance.off('all_notifications_read', onNotificationsRead);
   };
 }
