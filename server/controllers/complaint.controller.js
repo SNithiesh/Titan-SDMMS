@@ -5,6 +5,7 @@ import {
   updateComplaint,
   getComplaintStats
 } from '../repositories/complaint.repository.js';
+import { createNotification } from '../repositories/notification.repository.js';
 import { successResponse, errorResponse } from '../utils/responseFormatter.js';
 import { writeAuditLog } from '../middleware/auditLogger.js';
 
@@ -76,7 +77,17 @@ export async function submitComplaint(req, res, next) {
       ipAddress: req.ip
     });
 
+    // Create persistent notification for supervisors
+    const notification = await createNotification({
+      complaint_id: complaintId,
+      title: 'New Fault Registered',
+      message: `${machineName} (${faultName}) reported by ${req.user.name}.`,
+      priority: priority || 'High'
+    });
+
+    // Broadcast to UI
     req.app.get('io')?.emit('complaint_updated', { eventType: 'INSERT', new: result.data });
+    req.app.get('io')?.to('supervisors').emit('new_notification', notification);
 
     return successResponse(res, { complaint: result.data || newComplaint }, 'Breakdown complaint submitted successfully', 201);
   } catch (err) {

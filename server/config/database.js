@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { INITIAL_COMPLAINTS, DEMO_USERS } from '../../src/mockData.js';
+import { INITIAL_COMPLAINTS, DEMO_USERS, FAULT_CATEGORIES, MACHINES } from '../../src/mockData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +88,78 @@ function initializeDatabase() {
       failure_reason TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      complaint_id TEXT,
+      title TEXT,
+      message TEXT,
+      priority TEXT,
+      is_read BOOLEAN DEFAULT 0,
+      read_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    /* =========================================
+       ERP SYSTEM TABLES
+       ========================================= */
+
+    CREATE TABLE IF NOT EXISTS departments (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      is_active BOOLEAN DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS machine_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      is_active BOOLEAN DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS fault_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      is_active BOOLEAN DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS fault_types (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      default_priority TEXT DEFAULT 'Medium',
+      is_active BOOLEAN DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(category_id) REFERENCES fault_categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS priorities (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      level INTEGER NOT NULL,
+      color_code TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS statuses (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      is_terminal BOOLEAN DEFAULT 0,
+      color_code TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      description TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Seed demo users if empty
@@ -161,6 +233,51 @@ function initializeDatabase() {
       }
     });
     insertMany(INITIAL_COMPLAINTS);
+  }
+
+  // Seed ERP base data (Priorities, Statuses, Departments)
+  const priorityCount = db.prepare('SELECT COUNT(*) as count FROM priorities').get().count;
+  if (priorityCount === 0) {
+    console.log('[DB] Seeding ERP Master Data...');
+    db.exec(`
+      INSERT INTO priorities (id, name, level, color_code) VALUES 
+      ('P1', 'Critical', 1, '#E81123'),
+      ('P2', 'High', 2, '#D83B01'),
+      ('P3', 'Medium', 3, '#0078D4'),
+      ('P4', 'Low', 4, '#107C10');
+
+      INSERT INTO statuses (id, name, is_terminal, color_code) VALUES 
+      ('S1', 'New', 0, '#666666'),
+      ('S2', 'Assigned', 0, '#0078D4'),
+      ('S3', 'Accepted', 0, '#D83B01'),
+      ('S4', 'Repair Started', 0, '#107C10'),
+      ('S5', 'Completed', 0, '#0078D4'),
+      ('S6', 'Closed', 1, '#107C10');
+
+      INSERT INTO departments (id, name, description) VALUES 
+      ('D1', 'Back Cover Dept', 'Main assembly line for back covers'),
+      ('D2', 'Maintenance', 'General plant maintenance'),
+      ('D3', 'Automation', 'Automation and robotics division'),
+      ('D4', 'IT / Plant Admin', 'System administration');
+    `);
+  }
+
+  // Seed Fault Categories & Types from FAULT_CATEGORIES
+  const faultCatCount = db.prepare('SELECT COUNT(*) as count FROM fault_categories').get().count;
+  if (faultCatCount === 0) {
+    console.log('[DB] Seeding Fault Categories and Types...');
+    const insertCat = db.prepare('INSERT INTO fault_categories (id, name, description) VALUES (?, ?, ?)');
+    const insertType = db.prepare('INSERT INTO fault_types (id, category_id, name) VALUES (?, ?, ?)');
+    
+    db.transaction(() => {
+      for (const cat of FAULT_CATEGORIES) {
+        insertCat.run(cat.id, cat.name, cat.name + ' Faults');
+        for (let i = 0; i < cat.faults.length; i++) {
+          const f = cat.faults[i];
+          insertType.run(f.id, cat.id, f.name);
+        }
+      }
+    })();
   }
 }
 

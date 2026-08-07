@@ -44,14 +44,15 @@ export default defineConfig({
         orientation: 'any',
         icons: [
           {
-            src: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=192&h=192&fit=crop',
+            src: '/titan-logo.jpg',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/jpeg'
           },
           {
-            src: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=512&h=512&fit=crop',
+            src: '/titan-logo.jpg',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/jpeg',
+            purpose: 'any maskable'
           }
         ]
       }

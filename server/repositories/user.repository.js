@@ -57,3 +57,44 @@ export async function createUser({ employeeId, name, role, department, disciplin
 export async function updateUserPassword(employeeId, passwordHash) {
   db.prepare('UPDATE users SET password_hash = ? WHERE employee_id = ?').run(passwordHash, employeeId);
 }
+
+export async function updateUser(id, updates) {
+  const current = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!current) throw new Error('User not found');
+
+  if (updates.passwordHash) {
+    db.prepare(`
+      UPDATE users 
+      SET employee_id = ?, name = ?, role = ?, department = ?, discipline = ?, password_hash = ?
+      WHERE id = ?
+    `).run(
+      updates.employeeId || current.employee_id,
+      updates.name || current.name,
+      updates.role || current.role,
+      updates.department !== undefined ? updates.department : current.department,
+      updates.discipline !== undefined ? updates.discipline : current.discipline,
+      updates.passwordHash,
+      id
+    );
+  } else {
+    db.prepare(`
+      UPDATE users 
+      SET employee_id = ?, name = ?, role = ?, department = ?, discipline = ?
+      WHERE id = ?
+    `).run(
+      updates.employeeId || current.employee_id,
+      updates.name || current.name,
+      updates.role || current.role,
+      updates.department !== undefined ? updates.department : current.department,
+      updates.discipline !== undefined ? updates.discipline : current.discipline,
+      id
+    );
+  }
+
+  return db.prepare('SELECT id, employee_id, name, role, department, discipline FROM users WHERE id = ?').get(id);
+}
+
+export async function deleteUser(id) {
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  return true;
+}
